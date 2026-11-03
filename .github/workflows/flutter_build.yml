@@ -1,19 +1,42 @@
-name: Build Flutter APK
+name: Flutter CI and Android Build
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
-  build:
-    name: Build Android APK
+  validate-and-build:
+    name: Analyze, test, and build Android
     runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+
+      - name: Validate Supabase configuration
+        shell: bash
+        run: |
+          if [ -z "$SUPABASE_URL" ]; then
+            echo "::error::Missing GitHub Actions secret SUPABASE_URL."
+            exit 1
+          fi
+          if [ -z "$SUPABASE_ANON_KEY" ]; then
+            echo "::error::Missing GitHub Actions secret SUPABASE_ANON_KEY."
+            exit 1
+          fi
+          case "$SUPABASE_URL" in
+            https://*.supabase.co) ;;
+            *) echo "::error::SUPABASE_URL must be a valid https://<project-ref>.supabase.co URL."; exit 1 ;;
+          esac
 
       - name: Setup Java
         uses: actions/setup-java@v5
@@ -27,86 +50,35 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Flutter Version
+      - name: Flutter version
         run: flutter --version
 
-      - name: Pub Get
+      - name: Resolve dependencies
         run: flutter pub get
 
-      # Fix Android compileSdk in the Flutter project
-      - name: Fix Project compileSdk
-        shell: bash
+      - name: Analyze
+        run: flutter analyze --no-pub
+
+      - name: Tests
+        run: flutter test --no-pub
+
+      - name: Build release APK
         run: |
-          find android -type f \( -name "build.gradle" -o -name "build.gradle.kts" \) -print
+          flutter build apk --release --no-pub \
+            --dart-define=SUPABASE_URL="$SUPABASE_URL" \
+            --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"
 
-          find android -type f \( -name "build.gradle" -o -name "build.gradle.kts" \) \
-            -exec sed -i -E \
-            's/compileSdkVersion[[:space:]]+[0-9]+/compileSdkVersion 34/g' {} \;
-
-          find android -type f \( -name "build.gradle" -o -name "build.gradle.kts" \) \
-            -exec sed -i -E \
-            's/compileSdk[[:space:]]*=[[:space:]]*[0-9]+/compileSdk = 34/g' {} \;
-
-          find android -type f \( -name "build.gradle" -o -name "build.gradle.kts" \) \
-            -exec sed -i -E \
-            's/compileSdk[[:space:]]+[0-9]+/compileSdk 34/g' {} \;
-
-          find android -type f \( -name "build.gradle" -o -name "build.gradle.kts" \) \
-            -exec sed -i \
-            's/flutter\.compileSdkVersion/34/g' {} \;
-
-          echo "===== PROJECT COMPILE SDK ====="
-          grep -Rni "compileSdk" android || true
-
-      # Fix compileSdk inside Pub packages
-      - name: Fix Pub Packages
-        shell: bash
+      - name: Build release App Bundle
         run: |
-          PUB_DIR="$HOME/.pub-cache/hosted/pub.dev"
+          flutter build appbundle --release --no-pub \
+            --dart-define=SUPABASE_URL="$SUPABASE_URL" \
+            --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"
 
-          if [ -d "$PUB_DIR" ]; then
-
-            find "$PUB_DIR" -type f \( -name "build.gradle" -o -name "build.gradle.kts" \) \
-              -exec sed -i -E \
-              's/compileSdkVersion[[:space:]]+(30|31|32|33)/compileSdkVersion 34/g' {} \;
-
-            find "$PUB_DIR" -type f \( -name "build.gradle" -o -name "build.gradle.kts" \) \
-              -exec sed -i -E \
-              's/compileSdk[[:space:]]*=[[:space:]]*(30|31|32|33)/compileSdk = 34/g' {} \;
-
-            find "$PUB_DIR" -type f \( -name "build.gradle" -o -name "build.gradle.kts" \) \
-              -exec sed -i -E \
-              's/compileSdk[[:space:]]+(30|31|32|33)/compileSdk 34/g' {} \;
-
-            echo "===== ISAR ====="
-            find "$PUB_DIR" -path "*isar_flutter_libs*" \
-              -type f \( -name "build.gradle" -o -name "build.gradle.kts" \) \
-              -print -exec grep -n "compileSdk" {} \; || true
-          fi
-
-      - name: Clean
-        run: |
-          flutter clean
-          rm -rf build
-          rm -rf android/.gradle
-
-      - name: Pub Get Again
-        run: flutter pub get
-
-      - name: Build APK
-        run: |
-          flutter build apk \
-            --release \
-            --android-skip-build-dependency-validation
-
-      - name: Check APK
-        run: |
-          ls -lh build/app/outputs/flutter-apk/
-          file build/app/outputs/flutter-apk/app-release.apk
-
-      - name: Upload APK
+      - name: Upload Android artifacts
         uses: actions/upload-artifact@v5
         with:
-          name: restaurant-app-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
+          name: restaurant-android-release
+          path: |
+            build/app/outputs/flutter-apk/app-release.apk
+            build/app/outputs/bundle/release/app-release.aab
           if-no-files-found: error
