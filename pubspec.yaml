@@ -22,7 +22,6 @@ dependencies:
   isar_flutter_libs: ^3.1.0
   isar_generator: ^3.1.0
   build_runner: ^2.4.0
-  flutter_dotenv: ^5.2.0
   flutter_launcher_icons: ^0.13.1
   cupertino_icons: ^1.0.8
 
@@ -35,7 +34,6 @@ flutter:
   uses-material-design: true
 
   assets:
-    - .env
     - assets/images/food.jpg
     - assets/images/cafe.png
     - assets/images/all.png
@@ -55,20 +53,13 @@ flutter:
     - assets/images/iconhome.png
     - assets/images/iconshopping.png
     - assets/images/iconreceipt.png
-    - assets/images/otpphone.png
     - assets/images/history.png
     - assets/images/avtive_order.png
-    
-
-
-
- 
 
   fonts:
     - family: Lalezar
       fonts:
         - asset: assets/fonts/Lalezar.ttf
-
 
 flutter_launcher_icons:
   android: true
