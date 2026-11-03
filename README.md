@@ -2,34 +2,49 @@
 
 این پروژه Flutter به همان پروژه Supabase متصل می‌شود که CRM رستوران از آن استفاده می‌کند.
 
-## اجرا
+## تنظیم اتصال Supabase
 
-1. Flutter SDK سازگار با `pubspec.yaml` نصب کنید.
-2. `.env` را با آدرس Supabase و کلید عمومی پروژه تنظیم کنید؛ نمونه در `.env.example` موجود است. هرگز `service_role` یا کلید مخفی سرور را داخل اپ Flutter قرار ندهید.
-3. در ریشه پروژه اجرا کنید:
+فایل `.env` دیگر استفاده یا commit نمی‌شود. تنظیمات Supabase در زمان اجرا/Build از طریق Dart defines تزریق می‌شوند.
+
+در سیستم توسعه، مقادیر را از داشبورد Supabase بردارید و اجرا کنید:
 
 ```bash
 flutter pub get
-flutter run
+flutter run \
+  --dart-define=SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co \
+  --dart-define=SUPABASE_ANON_KEY=YOUR_PUBLISHABLE_OR_ANON_KEY
 ```
+
+برای ساخت محلی:
+
+```bash
+flutter build apk --release \
+  --dart-define=SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co \
+  --dart-define=SUPABASE_ANON_KEY=YOUR_PUBLISHABLE_OR_ANON_KEY
+```
+
+هرگز کلید `service_role` یا کلید مخفی سرور را در Flutter یا فایل‌های قابل دانلود اپ قرار ندهید. اپ Flutter یک کلاینت عمومی است؛ دسترسی داده‌ها باید با RLS و کلید عمومی Supabase محافظت شود.
+
+## تنظیم GitHub Actions
+
+در Repository به مسیر **Settings → Secrets and variables → Actions → New repository secret** بروید و دو Secret بسازید:
+
+- `SUPABASE_URL`: آدرس پروژه Supabase
+- `SUPABASE_ANON_KEY`: کلید عمومی Publishable یا legacy anon همان پروژه
+
+Workflow با هر push و Pull Request به `main`، وابستگی‌ها را دریافت می‌کند، `flutter analyze` و `flutter test` را اجرا می‌کند و APK و AAB می‌سازد. خروجی‌ها در بخش **Actions → اجرای Workflow → Artifacts** قابل دانلود هستند.
 
 ## اتصال‌های فعال
 
-- `banners`: عنوان، عنوان پیشنهاد، زیرعنوان، تصویر پس‌زمینه، لوگو، کد تخفیف و ترتیب از CRM خوانده می‌شود؛ لمس کد، آن را کپی می‌کند.
-- `categories` و `products`: دسته‌ها، تصاویر، قیمت پایه، تخفیف محصول، برچسب‌ها و توضیحات از دیتابیس خوانده می‌شوند.
-- `discounts`: فهرست تخفیف‌ها به‌صورت Realtime به‌روزرسانی می‌شود؛ اعتبار نهایی کد هنگام ثبت سفارش توسط تابع دیتابیس بررسی می‌شود.
-- `customer_notifications`: صفحه اختصاصی اعلان‌ها با به‌روزرسانی زنده و علامت‌گذاری به‌عنوان خوانده‌شده.
-- `orders` و `order_items`: ثبت سفارش با RPC تراکنشی `place_order` انجام می‌شود و وضعیت سفارش زنده به‌روز می‌شود.
-- `restaurant_settings` و `restaurant_tables`: هزینه/حداقل مبلغ ارسال و میزهای فعال از CRM خوانده می‌شود.
-- `addresses`, `profiles`, `loyalty_wallets`, `tickets`, `ticket_messages`: اطلاعات حساب مشتری از Supabase خوانده یا در آن ذخیره می‌شود.
-
-ستون‌های لازم برای بنر و اعلان از قبل در Supabase موجود بودند و عضویت جداول اصلی در `supabase_realtime` نیز بررسی شد؛ این نسخه به migration دیتابیسی جدید نیاز ندارد. داده نمونه به CRM اضافه نشده است؛ تا زمانی که داده در CRM ثبت نشده باشد، حالت خالی واقعی نمایش داده می‌شود.
+- `banners`: بنرها و کدهای تخفیف از CRM خوانده می‌شوند.
+- `categories` و `products`: دسته‌ها و محصولات از دیتابیس خوانده می‌شوند.
+- `discounts`: فهرست تخفیف‌ها به‌صورت Realtime به‌روزرسانی می‌شود.
+- `customer_notifications`: اعلان‌ها با به‌روزرسانی زنده.
+- `orders` و `order_items`: ثبت سفارش با RPC تراکنشی `place_order`.
+- `restaurant_settings` و `restaurant_tables`: تنظیمات رستوران و میزها از CRM.
+- `addresses`, `profiles`, `loyalty_wallets`, `tickets`, `ticket_messages`: اطلاعات حساب مشتری.
 
 ## رفتارهای عمداً آزمایشی
 
 - ورود و OTP همان پیاده‌سازی قبلی است و تغییری نکرده است.
-- پرداخت فقط رابط آزمایشی «پرداخت موفق» دارد؛ هیچ درگاه یا تراکنش بانکی واقعی فراخوانی نمی‌شود. بعد از تأیید آزمایشی، سفارش در Supabase ذخیره می‌شود.
-
-## بررسی
-
-فایل‌ها و ساختار به‌صورت ایستا بررسی شده‌اند. Flutter/Dart SDK در محیط تهیه بسته نصب نبود؛ بنابراین اجرای `flutter analyze` و `flutter test` در این محیط ممکن نبود و باید روی سیستم توسعه اجرا شوند.
+- پرداخت فقط رابط آزمایشی «پرداخت موفق» دارد؛ درگاه بانکی واقعی فراخوانی نمی‌شود.
