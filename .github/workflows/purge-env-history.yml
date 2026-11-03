@@ -1,0 +1,40 @@
+name: Purge .env from Git history
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type PURGE_ENV_HISTORY to confirm rewriting main history'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  purge:
+    if: ${{ inputs.confirm == 'PURGE_ENV_HISTORY' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout full main history
+        uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install git-filter-repo
+        run: |
+          python -m pip install --user git-filter-repo
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - name: Remove .env from every commit in main history
+        run: |
+          git filter-repo --force --path .env --invert-paths
+          git remote add origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
+          git push origin HEAD:main --force
+      - name: Verify current tree no longer tracks .env
+        run: |
+          if git ls-tree -r --name-only HEAD | grep -E '(^|/)\.env$'; then
+            echo "::error::.env still exists in rewritten main tree"
+            exit 1
+          fi
+          echo "Verified: .env is absent from rewritten main tree."
