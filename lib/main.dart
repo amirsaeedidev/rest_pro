@@ -10,14 +10,12 @@ import 'features/orders/providers/orders_provider.dart';
 import 'features/auth/screens/onboarding.dart';
 import 'shared/providers/navigation_provider.dart';
 import 'features/address/providers/address_provider.dart';
-import 'core/services/supabase_service.dart'; // ← اضافه شد
-import 'package:flutter_dotenv/flutter_dotenv.dart'; // برای dotenv.load لازم است
+import 'core/services/supabase_service.dart';
 import 'features/home/providers/home_provider.dart';
-//import 'core/debug/supabase_debug_screen.dart';
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await dotenv.load(fileName: '.env');
-  await SupabaseService.initialize(); // ← راه‌اندازی Supabase
+  await SupabaseService.initialize();
   runApp(
     MultiProvider(
       providers: [
