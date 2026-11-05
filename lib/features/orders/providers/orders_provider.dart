@@ -1,0 +1,313 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
+import '../../../core/model/cart_item_model.dart';
+import '../../../core/model/order_model.dart';
+import '../../../core/services/supabase_service.dart';
+
+class OrdersProvider extends ChangeNotifier {
+  List<OrderModel> _orders = const [];
+  bool _isLoading = false;
+  String? _error;
+  String? _activeUserId;
+  StreamSubscription<List<Map<String, dynamic>>>? _ordersSubscription;
+  StreamSubscription<dynamic>? _authSubscription;
+  int _fetchGeneration = 0;
+
+  OrdersProvider() {
+    // This provider exists before the mock OTP flow completes. Refresh after its
+    // existing Supabase test session becomes available, without changing login.
+    _authSubscription = SupabaseService.client.auth.onAuthStateChange.listen((_) {
+      if (!_mounted) return;
+      final userId = SupabaseService.client.auth.currentUser?.id;
+      if (userId == null) {
+        _fetchGeneration++;
+        _ordersSubscription?.cancel();
+        _ordersSubscription = null;
+        _activeUserId = null;
+        _orders = const [];
+        _error = null;
+        _isLoading = false;
+        notifyListeners();
+      } else if (_activeUserId != userId) {
+        _ordersSubscription?.cancel();
+        _ordersSubscription = null;
+        _activeUserId = null;
+        _orders = const [];
+        _error = null;
+        fetchOrders();
+      }
+    });
+  }
+
+  List<OrderModel> get orders => List.unmodifiable(_orders);
+  bool get isLoading => _isLoading;
+  String? get error => _error;
+
+  List<OrderModel> get activeOrders => _orders
+      .where((order) =>
+          order.status != OrderStatus.delivered &&
+          order.status != OrderStatus.cancelled)
+      .toList(growable: false);
+
+  List<OrderModel> get historyOrders => _orders
+      .where((order) =>
+          order.status == OrderStatus.delivered ||
+          order.status == OrderStatus.cancelled)
+      .toList(growable: false);
+
+  Future<void> fetchOrders() async {
+    final userId = SupabaseService.client.auth.currentUser?.id;
+    if (userId == null) {
+      _fetchGeneration++;
+      _ordersSubscription?.cancel();
+      _ordersSubscription = null;
+      _activeUserId = null;
+      _orders = const [];
+      _error = 'برای مشاهده سفارش‌ها وارد حساب شوید.';
+      _isLoading = false;
+      notifyListeners();
+      return;
+    }
+
+    final generation = ++_fetchGeneration;
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      final response = await SupabaseService.client
+          .from('orders')
+          .select()
+          .eq('user_id', userId)
+          .order('created_at', ascending: false);
+
+      final rows = (response as List)
+          .map((row) => Map<String, dynamic>.from(row as Map))
+          .toList(growable: false);
+      final mappedOrders = await _mapOrdersWithItems(rows);
+      if (generation != _fetchGeneration || isDisposed) return;
+
+      _orders = mappedOrders;
+      _activeUserId = userId;
+      _subscribeToOrderChanges(userId);
+    } catch (error, stackTrace) {
+      debugPrint('Fetch customer orders failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      _error = 'دریافت سفارش‌ها ناموفق بود. دوباره تلاش کنید.';
+    } finally {
+      if (generation == _fetchGeneration && !isDisposed) {
+        _isLoading = false;
+        notifyListeners();
+      }
+    }
+  }
+
+  bool get isDisposed => !_mounted;
+  bool _mounted = true;
+
+  void _subscribeToOrderChanges(String userId) {
+    if (_activeUserId == userId && _ordersSubscription != null) return;
+    _activeUserId = userId;
+    _ordersSubscription?.cancel();
+    _ordersSubscription = SupabaseService.client
+        .from('orders')
+        .stream(primaryKey: ['id'])
+        .eq('user_id', userId)
+        .order('created_at', ascending: false)
+        .listen(
+      (rows) async {
+        try {
+          final previousItems = <String, List<OrderItemModel>>{
+            for (final order in _orders)
+              if (order.items.isNotEmpty) order.id: order.items,
+          };
+          final mapped = await _mapOrdersWithItems(rows);
+          if (!_mounted || _activeUserId != userId) return;
+          _orders = mapped
+              .map((order) => order.items.isEmpty &&
+                      previousItems.containsKey(order.id)
+                  ? order.copyWith(items: previousItems[order.id])
+                  : order)
+              .toList(growable: false);
+          _error = null;
+          notifyListeners();
+        } catch (error) {
+          debugPrint('Realtime customer order update failed: $error');
+        }
+      },
+      onError: (Object error) =>
+          debugPrint('Customer orders realtime stream failed: $error'),
+    );
+  }
+
+  Future<List<OrderModel>> _mapOrdersWithItems(
+    List<Map<String, dynamic>> orderRows,
+  ) async {
+    final orders = orderRows.map(OrderModel.fromJson).toList(growable: false);
+    if (orders.isEmpty) return const [];
+
+    final orderIds = orders.map((order) => order.id).toList(growable: false);
+    final itemsByOrderId = <String, List<OrderItemModel>>{};
+    try {
+      final itemRows = await SupabaseService.client
+          .from('order_items')
+          .select('order_id, product_id, quantity, unit_price, products(name)')
+          .inFilter('order_id', orderIds);
+
+      for (final rawRow in itemRows as List) {
+        final row = Map<String, dynamic>.from(rawRow as Map);
+        final productValue = row['products'];
+        final product = productValue is Map
+            ? Map<String, dynamic>.from(productValue)
+            : const <String, dynamic>{};
+        final orderId = row['order_id']?.toString() ?? '';
+        if (orderId.isEmpty) continue;
+        final item = OrderItemModel(
+          productId: row['product_id']?.toString() ?? '',
+          productName: product['name'] as String? ?? 'محصول حذف‌شده',
+          quantity: (row['quantity'] as num?)?.toInt() ?? 1,
+          unitPrice: (row['unit_price'] as num?)?.round() ?? 0,
+        );
+        (itemsByOrderId[orderId] ??= <OrderItemModel>[]).add(item);
+      }
+    } catch (error) {
+      // Keep the orders visible even when the item relation is temporarily unavailable.
+      debugPrint('Could not load order items: $error');
+    }
+
+    return orders
+        .map((order) => order.copyWith(
+              items: itemsByOrderId[order.id] ?? const <OrderItemModel>[],
+            ))
+        .toList(growable: false);
+  }
+
+  OrderModel? findById(String id) {
+    for (final order in _orders) {
+      if (order.id == id) return order;
+    }
+    return null;
+  }
+
+  /// Persists the order through the CRM's transactional RPC.
+  /// The customer-facing payment step remains simulated; no payment provider is called.
+  Future<bool> placeOrder(
+    OrderModel order,
+    List<CartItemModel> cartItems,
+    String? discountCode,
+  ) async {
+    final client = SupabaseService.client;
+    final userId = client.auth.currentUser?.id;
+    if (userId == null) {
+      _error = 'برای ثبت سفارش وارد حساب شوید.';
+      notifyListeners();
+      return false;
+    }
+    if (cartItems.isEmpty) {
+      _error = 'سبد خرید خالی است.';
+      notifyListeners();
+      return false;
+    }
+
+    try {
+      final itemsPayload = cartItems
+          .map((item) => {
+                'product_id': item.product.id,
+                'quantity': item.quantity,
+              })
+          .toList(growable: false);
+
+      final response = await client.rpc(
+        'place_order',
+        params: {
+          'p_order_type': order.type == OrderType.delivery
+              ? 'delivery'
+              : (order.type == OrderType.pickup ? 'pickup' : 'dine_in'),
+          'p_items': itemsPayload,
+          'p_address_id': order.addressId,
+          'p_address_line': order.address,
+          'p_table_number': order.tableNumber,
+          'p_table_id': order.tableId,
+          'p_note': order.note,
+          'p_discount_code': discountCode,
+        },
+      );
+
+      // The live Supabase RPC returns the new order UUID, not an order JSON row.
+      final orderId = response?.toString() ?? '';
+      if (orderId.isEmpty) {
+        throw const FormatException('place_order did not return an order id');
+      }
+
+      var savedOrder = order.copyWith(
+        id: orderId,
+        orderCode: orderId.length >= 8
+            ? orderId.substring(0, 8).toUpperCase()
+            : orderId.toUpperCase(),
+        items: cartItems
+            .map((item) => OrderItemModel(
+                  productId: item.product.id,
+                  productName: item.product.name,
+                  quantity: item.quantity,
+                  unitPrice: item.product.price,
+                ))
+            .toList(growable: false),
+      );
+
+      // Use authoritative totals/status saved by the RPC when the row is readable.
+      try {
+        final row = await client.from('orders').select().eq('id', orderId).single();
+        savedOrder = OrderModel.fromJson(Map<String, dynamic>.from(row)).copyWith(
+          items: savedOrder.items,
+        );
+      } catch (error) {
+        debugPrint('Order created, but its confirmation row could not be re-read: $error');
+      }
+
+      _upsertOrder(savedOrder);
+      _error = null;
+      if (_activeUserId != userId || _ordersSubscription == null) {
+        _subscribeToOrderChanges(userId);
+      }
+      notifyListeners();
+      return true;
+    } catch (error, stackTrace) {
+      final details = error.toString().toLowerCase();
+      if (details.contains('invalid, expired, or ineligible discount code')) {
+        _error = 'کد تخفیف نامعتبر، منقضی یا برای این حساب غیرمجاز است.';
+      } else if (details.contains('product is unavailable')) {
+        _error = 'یکی از محصولات دیگر در دسترس نیست. سبد خرید را تازه‌سازی کنید.';
+      } else if (details.contains('authentication required')) {
+        _error = 'نشست ورود معتبر نیست؛ دوباره وارد حساب آزمایشی شوید.';
+      } else if (details.contains('delivery address is required')) {
+        _error = 'برای سفارش دلیوری باید آدرس تحویل ثبت شود.';
+      } else {
+        _error = 'ثبت سفارش در سرور انجام نشد. اطلاعات سفارش و اتصال را بررسی کنید.';
+      }
+      debugPrint('Place order failed: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      notifyListeners();
+      return false;
+    }
+  }
+
+  void _upsertOrder(OrderModel order) {
+    final index = _orders.indexWhere((existing) => existing.id == order.id);
+    if (index == -1) {
+      _orders = [order, ..._orders];
+    } else {
+      final updated = [..._orders];
+      updated[index] = order;
+      _orders = updated;
+    }
+  }
+
+  @override
+  void dispose() {
+    _mounted = false;
+    _authSubscription?.cancel();
+    _ordersSubscription?.cancel();
+    super.dispose();
+  }
+}

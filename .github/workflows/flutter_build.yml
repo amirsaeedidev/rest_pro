@@ -1,0 +1,112 @@
+name: Build Flutter APK
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Flutter Version
+        run: flutter --version
+
+      - name: Pub Get
+        run: flutter pub get
+
+      # Fix Android compileSdk in the Flutter project
+      - name: Fix Project compileSdk
+        shell: bash
+        run: |
+          find android -type f \( -name "build.gradle" -o -name "build.gradle.kts" \) -print
+
+          find android -type f \( -name "build.gradle" -o -name "build.gradle.kts" \) \
+            -exec sed -i -E \
+            's/compileSdkVersion[[:space:]]+[0-9]+/compileSdkVersion 34/g' {} \;
+
+          find android -type f \( -name "build.gradle" -o -name "build.gradle.kts" \) \
+            -exec sed -i -E \
+            's/compileSdk[[:space:]]*=[[:space:]]*[0-9]+/compileSdk = 34/g' {} \;
+
+          find android -type f \( -name "build.gradle" -o -name "build.gradle.kts" \) \
+            -exec sed -i -E \
+            's/compileSdk[[:space:]]+[0-9]+/compileSdk 34/g' {} \;
+
+          find android -type f \( -name "build.gradle" -o -name "build.gradle.kts" \) \
+            -exec sed -i \
+            's/flutter\.compileSdkVersion/34/g' {} \;
+
+          echo "===== PROJECT COMPILE SDK ====="
+          grep -Rni "compileSdk" android || true
+
+      # Fix compileSdk inside Pub packages
+      - name: Fix Pub Packages
+        shell: bash
+        run: |
+          PUB_DIR="$HOME/.pub-cache/hosted/pub.dev"
+
+          if [ -d "$PUB_DIR" ]; then
+
+            find "$PUB_DIR" -type f \( -name "build.gradle" -o -name "build.gradle.kts" \) \
+              -exec sed -i -E \
+              's/compileSdkVersion[[:space:]]+(30|31|32|33)/compileSdkVersion 34/g' {} \;
+
+            find "$PUB_DIR" -type f \( -name "build.gradle" -o -name "build.gradle.kts" \) \
+              -exec sed -i -E \
+              's/compileSdk[[:space:]]*=[[:space:]]*(30|31|32|33)/compileSdk = 34/g' {} \;
+
+            find "$PUB_DIR" -type f \( -name "build.gradle" -o -name "build.gradle.kts" \) \
+              -exec sed -i -E \
+              's/compileSdk[[:space:]]+(30|31|32|33)/compileSdk 34/g' {} \;
+
+            echo "===== ISAR ====="
+            find "$PUB_DIR" -path "*isar_flutter_libs*" \
+              -type f \( -name "build.gradle" -o -name "build.gradle.kts" \) \
+              -print -exec grep -n "compileSdk" {} \; || true
+          fi
+
+      - name: Clean
+        run: |
+          flutter clean
+          rm -rf build
+          rm -rf android/.gradle
+
+      - name: Pub Get Again
+        run: flutter pub get
+
+      - name: Build APK
+        run: |
+          flutter build apk \
+            --release \
+            --android-skip-build-dependency-validation
+
+      - name: Check APK
+        run: |
+          ls -lh build/app/outputs/flutter-apk/
+          file build/app/outputs/flutter-apk/app-release.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v5
+        with:
+          name: restaurant-app-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error

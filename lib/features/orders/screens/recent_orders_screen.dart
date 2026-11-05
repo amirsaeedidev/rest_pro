@@ -1,0 +1,378 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../../../core/theme/app_colors.dart';
+import '../providers/orders_provider.dart';
+import '../widgets/order_history_card.dart';
+import '../../../shared/widgets/shimmer_skeleton.dart';
+
+class RecentOrdersScreen extends StatefulWidget {
+  const RecentOrdersScreen({super.key});
+
+  @override
+  State<RecentOrdersScreen> createState() => _RecentOrdersScreenState();
+}
+
+class _RecentOrdersScreenState extends State<RecentOrdersScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<OrdersProvider>().fetchOrders();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => const _OrdersView();
+}
+
+class _OrdersView extends DefaultTabController {
+  const _OrdersView() : super(length: 2, child: const _Body());
+}
+
+class _Body extends StatelessWidget {
+  const _Body();
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final provider = context.watch<OrdersProvider>();
+
+    // تعریف رنگ‌ها برای استفاده آسان‌تر
+    final backgroundColor =
+        isDark ? AppColors.darkBackground : AppColors.lightBackground;
+    final surfaceColor =
+        isDark ? const Color(0xFF1E1E1E) : Colors.white; // رنگ کارت‌ها و تب‌ها
+    final primaryColor = AppColors.primary;
+    final textColor = isDark ? AppColors.darkText : AppColors.lightText;
+    final textSecondaryColor = isDark
+        ? AppColors.darkTextSecondary
+        : AppColors.lightTextSecondary;
+
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        backgroundColor: backgroundColor,
+        // استفاده از appBar شفاف برای اعمال سایه سفارشی
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          automaticallyImplyLeading: false,
+          // flexibleSpace برای اعمال پس‌زمینه رنگی بهAppBar اصلی
+          flexibleSpace: Container(
+            decoration: BoxDecoration(
+              color: backgroundColor,
+              boxShadow: [
+                BoxShadow(
+                  color: isDark
+                      ? Colors.black.withOpacity(0.3)
+                      : Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.only(right: 16, left: 16, top: 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'سفارشات',
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w900,
+                        color: textColor,
+                        letterSpacing: -0.5,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          // بخش پایین که شامل تب‌ها است را در کانتینر جداگانه با سایه قرار می‌دهیم
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(60),
+            child: Container(
+              color: backgroundColor,
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 16),
+                decoration: BoxDecoration(
+                  color: surfaceColor,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: isDark
+                          ? Colors.black.withOpacity(0.2)
+                          : Colors.black.withOpacity(0.04),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: TabBar(
+                  dividerColor: Colors.transparent,
+                  labelColor: primaryColor,
+                  unselectedLabelColor: textSecondaryColor,
+                  indicatorColor: Colors.transparent,
+                  indicatorSize: TabBarIndicatorSize.tab,
+                  indicator: BoxDecoration(
+                    color: isDark
+                        ? primaryColor.withOpacity(0.15)
+                        : primaryColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  labelStyle: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                  ),
+                  unselectedLabelStyle: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  tabs: [
+                    Tab(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Text('فعال'),
+                          if (provider.activeOrders.isNotEmpty) ...[
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: primaryColor,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                '${provider.activeOrders.length}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            )
+                          ],
+                        ],
+                      ),
+                    ),
+                    const Tab(text: 'تاریخچه'),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+        body: provider.isLoading && provider.orders.isEmpty
+            ? const _OrdersSkeleton()
+            : (provider.error != null && provider.orders.isEmpty
+                ? _OrdersLoadError(
+                    message: provider.error!,
+                    onRetry: () => context.read<OrdersProvider>().fetchOrders(),
+                  )
+                : TabBarView(
+                    children: [
+                      _OrderList(
+                        orders: provider.activeOrders,
+                        emptyImagePath: 'assets/images/avtive_order.png',
+                        emptyTitle: 'سفارش فعالی نداری',
+                        emptySubtitle: 'یه نگاه به منو بنداز و خوشمزه‌ترین غذا رو انتخاب کن 😋',
+                        isDark: isDark,
+                        surfaceColor: surfaceColor,
+                        textColor: textColor,
+                        textSecondaryColor: textSecondaryColor,
+                      ),
+                      _OrderList(
+                        orders: provider.historyOrders,
+                        emptyImagePath: 'assets/images/history.png',
+                        emptyTitle: 'هنوز سفارشی نداری',
+                        emptySubtitle: 'اولین تجربه غذایی خوشمزه رو همین الان شروع کن!',
+                        isDark: isDark,
+                        surfaceColor: surfaceColor,
+                        textColor: textColor,
+                        textSecondaryColor: textSecondaryColor,
+                      ),
+                    ],
+                  )),
+      ),
+    );
+  }
+}
+
+class _OrdersSkeleton extends StatelessWidget {
+  const _OrdersSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final block = isDark ? const Color(0xFF282828) : Colors.white;
+    return ShimmerSkeleton(
+      child: ListView.builder(
+        padding: const EdgeInsets.fromLTRB(16, 22, 16, 100),
+        itemCount: 4,
+        itemBuilder: (context, index) => Container(
+          margin: const EdgeInsets.only(bottom: 14),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: block,
+            borderRadius: BorderRadius.circular(18),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(width: 135, height: 14, decoration: BoxDecoration(color: block, borderRadius: BorderRadius.circular(6))),
+              const SizedBox(height: 14),
+              Container(width: double.infinity, height: 10, decoration: BoxDecoration(color: block, borderRadius: BorderRadius.circular(6))),
+              const SizedBox(height: 9),
+              Container(width: 190, height: 10, decoration: BoxDecoration(color: block, borderRadius: BorderRadius.circular(6))),
+              const SizedBox(height: 18),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Container(width: 100, height: 15, decoration: BoxDecoration(color: block, borderRadius: BorderRadius.circular(6))),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _OrdersLoadError extends StatelessWidget {
+  const _OrdersLoadError({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.cloud_off_rounded, size: 48, color: AppColors.primary),
+            const SizedBox(height: 12),
+            Text(message, textAlign: TextAlign.center, style: TextStyle(color: isDark ? AppColors.darkText : AppColors.lightText)),
+            const SizedBox(height: 14),
+            FilledButton.icon(onPressed: onRetry, icon: const Icon(Icons.refresh_rounded), label: const Text('تلاش دوباره')),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _OrderList extends StatelessWidget {
+  const _OrderList({
+    required this.orders,
+    required this.emptyImagePath,
+    required this.emptyTitle,
+    required this.emptySubtitle,
+    required this.isDark,
+    required this.surfaceColor,
+    required this.textColor,
+    required this.textSecondaryColor,
+  });
+
+  final List orders;
+  final String emptyImagePath;
+  final String emptyTitle;
+  final String emptySubtitle;
+  final bool isDark;
+  final Color surfaceColor;
+  final Color textColor;
+  final Color textSecondaryColor;
+
+  @override
+  Widget build(BuildContext context) {
+    if (orders.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 32),
+          child: Container(
+            padding: const EdgeInsets.all(32),
+            decoration: BoxDecoration(
+              color: surfaceColor,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: isDark
+                      ? Colors.black.withOpacity(0.3)
+                      : Colors.black.withOpacity(0.03),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // افکت نرم برای عکس
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? Colors.white.withOpacity(0.05)
+                        : AppColors.primary.withOpacity(0.08),
+                    shape: BoxShape.circle,
+                  ),
+                  // ویجت عکس جایگزین ایموجی شد
+                  child: Image.asset(
+                    emptyImagePath,
+                    width: 50,
+                    height: 50,
+                    // در صورت پیدا نشدن عکس، این آیکون نشان داده می‌شود تا اپ کرش نکند
+                    errorBuilder: (context, error, stackTrace) => Icon(
+                      Icons.receipt_long_rounded,
+                      size: 50,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Text(
+                  emptyTitle,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: textColor,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  emptySubtitle,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: textSecondaryColor,
+                    height: 1.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 100), // فاصله بالاتر برای زیبایی
+      physics: const BouncingScrollPhysics(), // اسکرول نرم‌تر
+      itemCount: orders.length,
+      itemBuilder: (_, i) => Padding(
+        padding: const EdgeInsets.only(bottom: 16),
+        child: OrderHistoryCard(order: orders[i]),
+      ),
+    );
+  }
+}

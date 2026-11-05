@@ -1,0 +1,76 @@
+name: my_project
+description: "A new Flutter project."
+
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.11.3
+
+dependencies:
+  flutter:
+    sdk: flutter
+  provider: ^6.0.0
+  supabase_flutter: ^2.9.1
+  intl:
+  uuid:
+  cached_network_image:
+  dio: ^5.0.0
+  shared_preferences:
+  isar: ^3.1.0
+  isar_flutter_libs: ^3.1.0
+  isar_generator: ^3.1.0
+  build_runner: ^2.4.0
+  flutter_dotenv: ^5.2.0
+  flutter_launcher_icons: ^0.13.1
+  cupertino_icons: ^1.0.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - .env
+    - assets/images/food.jpg
+    - assets/images/cafe.png
+    - assets/images/all.png
+    - assets/images/baner.png
+    - assets/images/soda.png
+    - assets/images/hamber.png
+    - assets/images/massege.png
+    - assets/images/ticket.png
+    - assets/images/location.png
+    - assets/images/phone.png
+    - assets/images/whatsapp.png
+    - assets/images/email.png
+    - assets/images/support_banner.png
+    - assets/images/otpphone.png
+    - assets/images/search.png
+    - assets/images/EmptyBasket.png
+    - assets/images/iconhome.png
+    - assets/images/iconshopping.png
+    - assets/images/iconreceipt.png
+    - assets/images/otpphone.png
+    - assets/images/history.png
+    - assets/images/avtive_order.png
+    
+
+
+
+ 
+
+  fonts:
+    - family: Lalezar
+      fonts:
+        - asset: assets/fonts/Lalezar.ttf
+
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/app_icon.png"
