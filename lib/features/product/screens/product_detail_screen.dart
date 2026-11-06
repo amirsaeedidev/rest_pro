@@ -292,6 +292,7 @@ class _FloatingProductCard extends StatelessWidget {
                           color: Colors.deepOrange,
                           isDark: isDark,
                         ),
+                      ...product.labels.take(3).map((label) => _GlassBadge(icon: Icons.local_offer_outlined, label: label, color: AppColors.secondary, isDark: isDark)),
                       if (product.rating > 0)
                         _GlassBadge(
                           icon: Icons.star_rounded,
@@ -547,10 +548,13 @@ class _ContentSection extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 12),
-              Text(
-                product.aboutDish.trim().isNotEmpty
-                    ? product.aboutDish
-                    : product.description,
+              if (product.description.trim().isNotEmpty)
+                Text(product.description, style: TextStyle(fontSize: 14, height: 1.8, color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary)),
+              if (product.aboutDish.trim().isNotEmpty && product.aboutDish.trim() != product.description.trim()) ...[
+                const SizedBox(height: 12),
+                Text('توضیحات کامل', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: isDark ? AppColors.darkText : AppColors.lightText)),
+                const SizedBox(height: 6),
+                Text(product.aboutDish,
                 style: TextStyle(
                   fontSize: 14,
                   height: 1.8,
