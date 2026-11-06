@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import '../../../core/model/discount_model.dart';
+import '../../../core/model/cart_item_model.dart';
 import '../../../core/services/discount_service.dart';
 
 /// وضعیت لودینگ Provider
@@ -90,7 +91,7 @@ class DiscountProvider extends ChangeNotifier {
   // ────────────────────────────────────────────
   Future<void> applyCode({
     required String code,
-    required int cartTotal,
+    required List<CartItemModel> items,
   }) async {
     if (code.trim().isEmpty) return;
 
@@ -100,7 +101,7 @@ class DiscountProvider extends ChangeNotifier {
 
     final result = await DiscountService.applyCode(
       code: code,
-      cartTotal: cartTotal,
+      items: items,
     );
 
     if (result.success) {
@@ -130,21 +131,9 @@ class DiscountProvider extends ChangeNotifier {
   // ────────────────────────────────────────────
   // علامت‌گذاری به‌عنوان استفاده‌شده (بعد از پرداخت)
   // ────────────────────────────────────────────
-  Future<void> markAppliedAsUsed() async {
-    if (_appliedDiscount == null) return;
-
-    await DiscountService.markAsUsed(
-      discountId: _appliedDiscount!.id,
-    );
-
-    // آپدیت local state
-    final index = _discounts.indexWhere((d) => d.id == _appliedDiscount!.id);
-    if (index != -1) {
-      _discounts[index] = _discounts[index].copyWith(status: DiscountStatus.used);
-    }
-
+  /// Clears the local selection after the order RPC has committed the redemption.
+  void clearAppliedAfterOrder() {
     removeDiscount();
-    notifyListeners();
   }
 
   // ── reset کامل (هنگام logout) ──
