@@ -14,6 +14,7 @@ class DiscountModel {
   final double value;
   final int? minOrderPrice;
   final DateTime? expiresAt;
+  final DateTime serverNow;
   final String emoji;
 
   const DiscountModel({
@@ -27,7 +28,8 @@ class DiscountModel {
     required this.emoji,
     this.minOrderPrice,
     this.expiresAt,
-  });
+    DateTime? serverNow,
+  }) : serverNow = serverNow ?? DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
 
   // ── computed (بدون allocation اضافه) ──
   // Eligibility and expiry are authoritative server decisions. The client clock
@@ -37,6 +39,13 @@ class DiscountModel {
   bool get isUsed => status == DiscountStatus.used;
 
   bool get isActive => status == DiscountStatus.active;
+
+  int get daysLeft {
+    final exp = expiresAt;
+    if (exp == null) return 0;
+    final days = exp.difference(serverNow).inDays;
+    return days < 0 ? 0 : days;
+  }
 
   String get valueLabel {
     if (type == DiscountType.percent) {
@@ -81,6 +90,7 @@ class DiscountModel {
       // در دیتابیس min_order_amount است
       minOrderPrice: _toIntOrNull(json['min_order_amount']),
       expiresAt: exp,
+      serverNow: DateTime.tryParse((json['server_now'] ?? '').toString()),
       // فیلد emoji در دیتابیس نیست، مقدار پیش‌فرض می‌دهیم
       emoji: '🏷️',
     );
@@ -108,6 +118,7 @@ class DiscountModel {
         value: value,
         minOrderPrice: minOrderPrice,
         expiresAt: expiresAt,
+        serverNow: serverNow,
         emoji: emoji,
       );
 
