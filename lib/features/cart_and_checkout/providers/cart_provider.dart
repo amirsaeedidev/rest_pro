@@ -16,6 +16,8 @@ class CartProvider extends ChangeNotifier {
   int get itemCount => _items.fold(0, (sum, e) => sum + e.quantity);
   int get totalPrice => _items.fold(0, (sum, e) => sum + e.totalPrice);
 
+  ProductModel? latestProduct(String productId) => _latestProducts[productId];
+
   bool isInCart(String productId) =>
       _items.any((e) => e.product.id == productId);
 
