@@ -102,7 +102,8 @@ class ProductModel {
     final storedDiscountedPrice = _parseNullableInt(json['discounted_price']);
     final calculatedDiscountedPrice =
         (basePrice * (100 - discountPercent) / 100).round();
-    final payablePrice = discountPercent > 0
+    final isDiscountActive = json['is_discount_active'] as bool? ?? (discountPercent > 0);
+    final payablePrice = isDiscountActive && discountPercent > 0
         ? (storedDiscountedPrice ?? calculatedDiscountedPrice)
         : basePrice;
     final description = json['description'] as String? ?? '';
@@ -127,7 +128,7 @@ class ProductModel {
       aboutDish: aboutDish.trim().isEmpty ? description : aboutDish,
       isActive: json['is_active'] as bool? ?? true,
       isAvailable: json['is_available'] as bool? ?? true,
-      isDiscountActive: json['is_discount_active'] as bool? ?? (discountPercent > 0),
+      isDiscountActive: isDiscountActive,
       unavailableReason: json['unavailable_reason'] as String? ?? '',
       sortOrder: _parseInt(json['sort_order']),
     );
