@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:uuid/uuid.dart';
 import '../../../core/model/cart_item_model.dart';
 import '../../../core/model/order_model.dart';
 import '../../../core/services/supabase_service.dart';
@@ -13,6 +15,8 @@ class OrdersProvider extends ChangeNotifier {
   StreamSubscription<List<Map<String, dynamic>>>? _ordersSubscription;
   StreamSubscription<dynamic>? _authSubscription;
   int _fetchGeneration = 0;
+  String? _pendingOrderRequestId;
+  String? _pendingOrderFingerprint;
 
   OrdersProvider() {
     // This provider exists before the mock OTP flow completes. Refresh after its
@@ -218,12 +222,29 @@ class OrdersProvider extends ChangeNotifier {
               })
           .toList(growable: false);
 
+      final orderType = order.type == OrderType.delivery
+          ? 'delivery'
+          : (order.type == OrderType.pickup ? 'pickup' : 'dine_in');
+      final fingerprint = jsonEncode({
+        'order_type': orderType,
+        'items': itemsPayload,
+        'address_id': order.addressId,
+        'address_line': order.address,
+        'table_number': order.tableNumber,
+        'table_id': order.tableId,
+        'note': order.note,
+        'discount_code': discountCode,
+      });
+      if (_pendingOrderFingerprint != fingerprint || _pendingOrderRequestId == null) {
+        _pendingOrderFingerprint = fingerprint;
+        _pendingOrderRequestId = const Uuid().v4();
+      }
+
       final response = await client.rpc(
-        'place_order',
+        'place_order_idempotent',
         params: {
-          'p_order_type': order.type == OrderType.delivery
-              ? 'delivery'
-              : (order.type == OrderType.pickup ? 'pickup' : 'dine_in'),
+          'p_client_request_id': _pendingOrderRequestId,
+          'p_order_type': orderType,
           'p_items': itemsPayload,
           'p_address_id': order.addressId,
           'p_address_line': order.address,
@@ -266,6 +287,8 @@ class OrdersProvider extends ChangeNotifier {
       }
 
       _upsertOrder(savedOrder);
+      _pendingOrderRequestId = null;
+      _pendingOrderFingerprint = null;
       _error = null;
       if (_activeUserId != userId || _ordersSubscription == null) {
         _subscribeToOrderChanges(userId);
