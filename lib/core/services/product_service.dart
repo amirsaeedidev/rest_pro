@@ -12,13 +12,14 @@ class ProductService {
       .map((row) => ProductModel.fromJson(Map<String, dynamic>.from(row as Map)))
       .toList(growable: false);
 
-  // Fetch all catalog metadata so Realtime can report active -> inactive and
-  // available -> unavailable transitions. The customer UI filters inactive rows.
+  // Initial catalog reads return active products only. The unfiltered Realtime
+  // stream below observes active -> inactive transitions under the public metadata policy.
   static Future<List<ProductModel>> getProducts() async {
     try {
       final rows = await _client
           .from('products')
           .select(_columns)
+          .eq('is_active', true)
           .order('sort_order', ascending: true)
           .order('created_at', ascending: false);
       return _mapRows(rows as List);
