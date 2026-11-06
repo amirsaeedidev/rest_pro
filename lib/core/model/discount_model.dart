@@ -17,7 +17,7 @@ class DiscountModel {
   final DateTime serverNow;
   final String emoji;
 
-  const DiscountModel({
+  DiscountModel({
     required this.id,
     required this.code,
     required this.title,
