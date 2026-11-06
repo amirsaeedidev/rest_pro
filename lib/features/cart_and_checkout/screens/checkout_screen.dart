@@ -269,6 +269,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   bool _validate() {
+    final cart = context.read<CartProvider>();
+    final unavailableItems = cart.items.where((item) => !item.product.isActive || !item.product.isAvailable).toList();
+    if (unavailableItems.isNotEmpty) {
+      _showError('محصول ناموجود در سبد دارید؛ ابتدا آن را حذف کنید.');
+      return false;
+    }
     if (_type == _DeliveryType.delivery) {
       final cartTotal = context.read<CartProvider>().totalPrice;
       if (_minimumDeliveryAmount > 0 && cartTotal < _minimumDeliveryAmount) {
