@@ -1,4 +1,5 @@
 name: Flutter Analyze
+# Validates the current PR head after each catalog integration update.
 
 on:
   push:
