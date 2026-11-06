@@ -100,7 +100,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
     await discountProvider.applyCode(
       code: code,
-      cartTotal: cart.totalPrice,
+      items: cart.items,
     );
 
     if (mounted) {
@@ -364,9 +364,9 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   final success = await ordersProvider.placeOrder(newOrder, cart.items, discountCode);
 
                   if (success && context.mounted) {
-                    // علامت زدن تخفیف به عنوان استفاده شده
+                    // Redemption was committed in the same database transaction as the order.
                     if (discountCode != null) {
-                      await context.read<DiscountProvider>().markAppliedAsUsed();
+                      context.read<DiscountProvider>().clearAppliedAfterOrder();
                     }
                     
                     cart.clearCart();
