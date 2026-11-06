@@ -37,7 +37,8 @@ class CategoryService {
   static Stream<List<CategoryModel>> watchCategories() => _client
       .from('categories')
       .stream(primaryKey: ['id'])
-      .eq('is_active', true)
+      // Subscribe to inactive rows too, so deactivation events are observable.
+      // The mapper below keeps them out of the customer-facing catalog.
       .order('sort_order', ascending: true)
       .map(
         (rows) => rows
