@@ -2,7 +2,7 @@
 
 enum DiscountType { percent, fixed }
 
-enum DiscountStatus { active, used, expired }
+enum DiscountStatus { active, used, expired, inactive }
 
 class DiscountModel {
   final String id;
@@ -30,24 +30,13 @@ class DiscountModel {
   });
 
   // ── computed (بدون allocation اضافه) ──
-  bool get isExpired {
-    if (status == DiscountStatus.expired) return true;
-    final exp = expiresAt;
-    if (exp == null) return false;
-    return DateTime.now().isAfter(exp);
-  }
+  // Eligibility and expiry are authoritative server decisions. The client clock
+  // must never decide whether a discount can be redeemed.
+  bool get isExpired => status == DiscountStatus.expired;
 
   bool get isUsed => status == DiscountStatus.used;
 
-  bool get isActive =>
-      status == DiscountStatus.active && !isExpired && !isUsed;
-
-  int get daysLeft {
-    final exp = expiresAt;
-    if (exp == null) return 0;
-    final d = exp.difference(DateTime.now()).inDays;
-    return d < 0 ? 0 : d;
-  }
+  bool get isActive => status == DiscountStatus.active;
 
   String get valueLabel {
     if (type == DiscountType.percent) {
@@ -70,21 +59,14 @@ class DiscountModel {
 
   // ── fromJson هماهنگ با دیتابیس واقعی Supabase ──
   factory DiscountModel.fromJson(Map<String, dynamic> json) {
-    // بررسی فعال بودن کد در دیتابیس
-    final bool isActiveInDb = json['is_active'] as bool? ?? false;
-    
-    // اگر تاریخ انقضا گذشته باشد، وضعیت expired است، در غیر این صورت اگر فعال باشد active است
+    // The RPC only returns currently eligible discounts, using PostgreSQL now().
+    // Do not derive expiry from DateTime.now() on the customer's device.
     final exp = _toDateOrNull(json['expires_at']);
-    bool isExpired = exp != null && DateTime.now().isAfter(exp);
-    
-    DiscountStatus parsedStatus;
-    if (isExpired) {
-      parsedStatus = DiscountStatus.expired;
-    } else if (isActiveInDb) {
-      parsedStatus = DiscountStatus.active;
-    } else {
-      parsedStatus = DiscountStatus.used; // یا در واقع غیرفعال
-    }
+    final parsedStatus = json['status'] == 'used'
+        ? DiscountStatus.used
+        : (json['is_active'] == true
+            ? DiscountStatus.active
+            : DiscountStatus.inactive);
 
     return DiscountModel(
       id: json['id'].toString(),
