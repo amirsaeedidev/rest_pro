@@ -81,11 +81,19 @@ class AuthProvider extends ChangeNotifier {
       final session = SupabaseService.client.auth.currentSession;
       final currentUser = SupabaseService.client.auth.currentUser;
 
-      if (session != null && currentUser != null) {
+      if (session != null &&
+          currentUser != null &&
+          currentUser.email != 'dev@restaurant.test') {
         _userId = currentUser.id;
         _status = AuthStatus.authenticated;
       } else {
+        // Force the old shared development account to sign out after upgrade.
+        if (currentUser?.email == 'dev@restaurant.test') {
+          await SupabaseService.client.auth.signOut();
+        }
         await prefs.remove(_keyIsLoggedIn);
+        await prefs.remove(_keyPhone);
+        _phone = '';
         _userId = null;
         _status = AuthStatus.unauthenticated;
       }
