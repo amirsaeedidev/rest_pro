@@ -2,12 +2,16 @@ class CategoryModel {
   final String id;
   final String name;
   final String imageUrl;
+  final int sortOrder;
+  final bool isActive;
   final int loyaltyPointsPerItem;
 
   const CategoryModel({
     required this.id,
     required this.name,
     required this.imageUrl,
+    this.sortOrder = 0,
+    this.isActive = true,
     this.loyaltyPointsPerItem = 0,
   });
 
@@ -15,6 +19,8 @@ class CategoryModel {
         'id': id,
         'name': name,
         'image_url': imageUrl,
+        'sort_order': sortOrder,
+        'is_active': isActive,
         'loyalty_points_per_item': loyaltyPointsPerItem,
       };
 
@@ -22,6 +28,8 @@ class CategoryModel {
         id: json['id']?.toString() ?? '',
         name: json['name'] as String? ?? '',
         imageUrl: json['image_url'] as String? ?? '',
+        sortOrder: _parseInt(json['sort_order']),
+        isActive: json['is_active'] as bool? ?? true,
         loyaltyPointsPerItem: _parseInt(json['loyalty_points_per_item']),
       );
 
