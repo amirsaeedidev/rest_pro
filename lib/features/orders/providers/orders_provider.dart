@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/model/cart_item_model.dart';
 import '../../../core/model/order_model.dart';
 import '../../../core/services/supabase_service.dart';
@@ -17,6 +18,8 @@ class OrdersProvider extends ChangeNotifier {
   int _fetchGeneration = 0;
   String? _pendingOrderRequestId;
   String? _pendingOrderFingerprint;
+  static const _pendingRequestIdKey = 'pending_order_request_id';
+  static const _pendingRequestFingerprintKey = 'pending_order_request_fingerprint';
 
   OrdersProvider() {
     // This provider exists before the mock OTP flow completes. Refresh after its
@@ -235,9 +238,14 @@ class OrdersProvider extends ChangeNotifier {
         'note': order.note,
         'discount_code': discountCode,
       });
+      final prefs = await SharedPreferences.getInstance();
+      _pendingOrderRequestId ??= prefs.getString(_pendingRequestIdKey);
+      _pendingOrderFingerprint ??= prefs.getString(_pendingRequestFingerprintKey);
       if (_pendingOrderFingerprint != fingerprint || _pendingOrderRequestId == null) {
         _pendingOrderFingerprint = fingerprint;
         _pendingOrderRequestId = const Uuid().v4();
+        await prefs.setString(_pendingRequestFingerprintKey, fingerprint);
+        await prefs.setString(_pendingRequestIdKey, _pendingOrderRequestId!);
       }
 
       final response = await client.rpc(
@@ -289,6 +297,8 @@ class OrdersProvider extends ChangeNotifier {
       _upsertOrder(savedOrder);
       _pendingOrderRequestId = null;
       _pendingOrderFingerprint = null;
+      await prefs.remove(_pendingRequestIdKey);
+      await prefs.remove(_pendingRequestFingerprintKey);
       _error = null;
       if (_activeUserId != userId || _ordersSubscription == null) {
         _subscribeToOrderChanges(userId);
