@@ -68,7 +68,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cart = context.watch<CartProvider>();
-    final inCart = cart.isInCart(widget.product.id);
+    final product = cart.latestProduct(widget.product.id) ?? widget.product;
+    final inCart = cart.isInCart(product.id);
 
     return Directionality(
       textDirection: TextDirection.rtl,
@@ -92,7 +93,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                   flexibleSpace: FlexibleSpaceBar(
                     collapseMode: CollapseMode.parallax,
                     background: _HeroSection(
-                      product: widget.product,
+                      product: product,
                       isDark: isDark,
                       fadeAnimation: _fadeAnimation,
                       slideAnimation: _slideAnimation,
@@ -105,7 +106,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                     child: SlideTransition(
                       position: _slideAnimation,
                       child: _ContentSection(
-                        product: widget.product,
+                        product: product,
                         isDark: isDark,
                       ),
                     ),
@@ -129,7 +130,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
           ],
         ),
         bottomNavigationBar: _FloatingBottomBar(
-          product: widget.product,
+          product: product,
           inCart: inCart,
           isDark: isDark,
           onAddedToCart: _triggerAddedToCartAnimation,
