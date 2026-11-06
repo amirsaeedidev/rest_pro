@@ -47,19 +47,10 @@ class DiscountService {
   static Stream<List<DiscountModel>> watchAvailableDiscounts() => _client
       .from(_table)
       .stream(primaryKey: ['id'])
-      .eq('is_active', true)
-      .order('created_at', ascending: false)
-      .asyncMap((rows) async {
-        final serverNow = DateTime.parse(
-          (await _client.rpc('get_customer_server_time')).toString(),
-        );
-        return rows
-            .map((row) => DiscountModel.fromJson({
-                  ...row,
-                  'server_now': serverNow.toIso8601String(),
-                }))
-            .toList(growable: false);
-      });
+      // Realtime is only the invalidation signal. The database RPC is the
+      // source of truth for time windows, usage caps and customer targeting.
+      .asyncMap((_) => fetchAvailableDiscounts());
+
 
   // ── اعمال کد با validation کامل ──
   static Future<DiscountResult> applyCode({
