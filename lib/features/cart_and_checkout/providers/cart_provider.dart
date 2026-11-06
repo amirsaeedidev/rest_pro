@@ -1,12 +1,16 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/model/product_model.dart';
 import '../../../core/model/cart_item_model.dart';
+import '../../../core/services/product_service.dart';
 
 class CartProvider extends ChangeNotifier {
   static const _keyCart = 'cart_items';
   final List<CartItemModel> _items = [];
+  final Map<String, ProductModel> _latestProducts = <String, ProductModel>{};
+  StreamSubscription<List<ProductModel>>? _productsSubscription;
 
   List<CartItemModel> get items => List.unmodifiable(_items);
   int get itemCount => _items.fold(0, (sum, e) => sum + e.quantity);
@@ -27,6 +31,34 @@ class CartProvider extends ChangeNotifier {
 
   CartProvider() {
     _loadCartFromPrefs();
+    _productsSubscription = ProductService.watchProducts().listen(
+      _syncProductSnapshots,
+      onError: (Object error) => debugPrint('Cart product realtime sync failed: $error'),
+    );
+  }
+
+  void _syncProductSnapshots(List<ProductModel> products) {
+    _latestProducts
+      ..clear()
+      ..addEntries(products.map((product) => MapEntry(product.id, product)));
+    _applyLatestProductsToCart();
+  }
+
+  void _applyLatestProductsToCart() {
+    var changed = false;
+    for (var i = 0; i < _items.length; i++) {
+      final current = _items[i].product;
+      final latest = _latestProducts[current.id];
+      final next = latest ?? current.copyWith(isActive: false, isAvailable: false);
+      if (next != current) {
+        _items[i] = _items[i].copyWith(product: next);
+        changed = true;
+      }
+    }
+    if (changed) {
+      _saveCartToPrefs();
+      notifyListeners();
+    }
   }
 
   // بارگذاری سبد خرید از حافظه محلی
@@ -38,6 +70,7 @@ class CartProvider extends ChangeNotifier {
         final list = jsonDecode(raw) as List;
         _items.clear();
         _items.addAll(list.map((e) => CartItemModel.fromJson(e)).toList());
+        _applyLatestProductsToCart();
         notifyListeners();
       }
     } catch (e) {
@@ -57,10 +90,11 @@ class CartProvider extends ChangeNotifier {
   }
 
   bool addItem(ProductModel product, {int quantity = 1, String note = ''}) {
-    if (!product.isActive || !product.isAvailable || quantity < 1) return false;
-    final index = _items.indexWhere((e) => e.product.id == product.id);
+    final latest = _latestProducts[product.id] ?? product;
+    if (!latest.isActive || !latest.isAvailable || quantity < 1) return false;
+    final index = _items.indexWhere((e) => e.product.id == latest.id);
     if (index == -1) {
-      _items.add(CartItemModel(product: product, quantity: quantity, note: note));
+      _items.add(CartItemModel(product: latest, quantity: quantity, note: note));
     } else {
       _items[index].quantity += quantity;
       if (note.isNotEmpty) _items[index].note = note;
@@ -111,5 +145,11 @@ class CartProvider extends ChangeNotifier {
     _items.clear();
     _saveCartToPrefs();
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _productsSubscription?.cancel();
+    super.dispose();
   }
 }
