@@ -517,6 +517,8 @@ class _ContentSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final secondary = isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
+    final primary = isDark ? AppColors.darkText : AppColors.lightText;
     return Transform.translate(
       offset: const Offset(0, -24),
       child: Container(
@@ -527,11 +529,7 @@ class _ContentSection extends StatelessWidget {
             topRight: Radius.circular(32),
           ),
           boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.08),
-              blurRadius: 20,
-              offset: const Offset(0, -4),
-            ),
+            BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 20, offset: const Offset(0, -4)),
           ],
         ),
         child: Padding(
@@ -539,30 +537,20 @@ class _ContentSection extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'درباره این غذا',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: isDark ? AppColors.darkText : AppColors.lightText,
-                ),
-              ),
+              Text('درباره این غذا', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: primary)),
               const SizedBox(height: 12),
               if (product.description.trim().isNotEmpty)
-                Text(product.description, style: TextStyle(fontSize: 14, height: 1.8, color: isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary)),
+                Text(product.description, style: TextStyle(fontSize: 14, height: 1.8, color: secondary)),
               if (product.aboutDish.trim().isNotEmpty && product.aboutDish.trim() != product.description.trim()) ...[
                 const SizedBox(height: 12),
-                Text('توضیحات کامل', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: isDark ? AppColors.darkText : AppColors.lightText)),
+                Text('توضیحات کامل', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: primary)),
                 const SizedBox(height: 6),
-                Text(product.aboutDish,
-                style: TextStyle(
-                  fontSize: 14,
-                  height: 1.8,
-                  color: isDark
-                      ? AppColors.darkTextSecondary
-                      : AppColors.lightTextSecondary,
-                ),
-              ),
+                Text(product.aboutDish, style: TextStyle(fontSize: 14, height: 1.8, color: secondary)),
+              ],
+              if (!product.isAvailable && product.unavailableReason.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Text('علت ناموجودی: ${product.unavailableReason}', style: const TextStyle(color: Colors.red, fontWeight: FontWeight.w600)),
+              ],
               const SizedBox(height: 28),
               _ReviewSection(product: product, isDark: isDark),
             ],
