@@ -158,6 +158,10 @@ class DiscountProvider extends ChangeNotifier {
 
   // ── reset کامل (هنگام logout) ──
   void reset() {
+    _serverRefreshTimer?.cancel();
+    _serverRefreshTimer = null;
+    _discountsSubscription?.cancel();
+    _discountsSubscription = null;
     _discounts = [];
     _loadState = DiscountLoadState.idle;
     _loadError = null;
