@@ -16,11 +16,12 @@ class OtpScreen extends StatefulWidget {
 
 class _OtpScreenState extends State<OtpScreen> {
   final List<TextEditingController> _controllers = List.generate(
-    4,
+    6,
     (_) => TextEditingController(),
   );
-  final List<FocusNode> _focusNodes = List.generate(4, (_) => FocusNode());
+  final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
 
+  static const _otpLength = 6;
   static const _timerSeconds = 120;
   int _remaining = _timerSeconds;
   Timer? _timer;
@@ -31,7 +32,7 @@ class _OtpScreenState extends State<OtpScreen> {
     super.initState();
     _startTimer();
     WidgetsBinding.instance.addPostFrameCallback(
-      (_) => _focusNodes[3].requestFocus(),
+      (_) => _focusNodes[5].requestFocus(),
     );
   }
 
@@ -72,11 +73,11 @@ class _OtpScreenState extends State<OtpScreen> {
   void _onChanged(String value, int index) {
     if (value.length == 1 && index > 0) {
       _focusNodes[index - 1].requestFocus();
-    } else if (value.isEmpty && index < 3) {
+    } else if (value.isEmpty && index < 5) {
       _focusNodes[index + 1].requestFocus();
     }
 
-    if (_otpCode.length == 4) {
+    if (_otpCode.length == _otpLength) {
       _verify();
     }
 
@@ -84,7 +85,7 @@ class _OtpScreenState extends State<OtpScreen> {
   }
 
   Future<void> _verify() async {
-    if (_otpCode.length < 4) return;
+    if (_otpCode.length < _otpLength) return;
     final auth = context.read<AuthProvider>();
     final success = await auth.verifyOtp(_otpCode);
     if (!mounted) return;
@@ -98,7 +99,7 @@ class _OtpScreenState extends State<OtpScreen> {
       for (final c in _controllers) {
         c.clear();
       }
-      _focusNodes[3].requestFocus();
+      _focusNodes[5].requestFocus();
       setState(() {});
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -122,7 +123,7 @@ class _OtpScreenState extends State<OtpScreen> {
     for (final c in _controllers) {
       c.clear();
     }
-    _focusNodes[3].requestFocus();
+    _focusNodes[5].requestFocus();
     setState(() {});
   }
 
@@ -157,7 +158,7 @@ class _OtpScreenState extends State<OtpScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'کد تأیید',
+                  'کد تأیید آزمایشی',
                   style: TextStyle(
                     fontSize: 26,
                     fontWeight: FontWeight.w900,
@@ -177,7 +178,7 @@ class _OtpScreenState extends State<OtpScreen> {
                           : AppColors.lightTextSecondary,
                     ),
                     children: [
-                      const TextSpan(text: 'کد ۴ رقمی ارسال‌شده به '),
+                      const TextSpan(text: 'کد ۶ رقمی آزمایشی برای '),
                       TextSpan(
                         text: widget.phone,
                         style: const TextStyle(
@@ -193,13 +194,13 @@ class _OtpScreenState extends State<OtpScreen> {
                 ),
                 SizedBox(height: 20),
 
-                // ── ۴ باکس OTP ──
+                // ── ۶ باکس OTP ──
                 Directionality(
                   textDirection: TextDirection.rtl,
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: List.generate(
-                      4,
+                      6,
                       (i) => _OtpBox(
                         controller: _controllers[i],
                         focusNode: _focusNodes[i],
@@ -256,7 +257,7 @@ class _OtpScreenState extends State<OtpScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: (auth.isLoading || _otpCode.length < 4)
+                    onPressed: (auth.isLoading || _otpCode.length < _otpLength)
                         ? null
                         : _verify,
                     style: ElevatedButton.styleFrom(
@@ -350,7 +351,7 @@ class _OtpBoxState extends State<_OtpBox> {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 68,
+      width: 48,
       height: 68,
       child: AnimatedScale(
         duration: const Duration(milliseconds: 180),
