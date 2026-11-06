@@ -43,7 +43,9 @@ void main() {
       });
 
       expect(product.price, 80000);
+      expect(product.price, isA<int>());
       expect(product.originalPrice, 100000);
+      expect(product.originalPrice, isA<int>());
       expect(product.hasDiscount, isTrue);
       expect(product.aboutDish, 'پنیر و قارچ');
       expect(product.labels, contains('محبوب'));
@@ -93,6 +95,7 @@ void main() {
       expect(order.type, OrderType.pickup);
       expect(order.status, OrderStatus.onTheWay);
       expect(order.totalPrice, 85000);
+      expect(order.totalPrice, isA<int>());
       expect(order.orderCode, '12345678');
     });
 
@@ -103,7 +106,9 @@ void main() {
       });
 
       expect(settings.deliveryFee, 15000);
+      expect(settings.deliveryFee, isA<int>());
       expect(settings.minimumDeliveryAmount, 125000);
+      expect(settings.minimumDeliveryAmount, isA<int>());
     });
 
     test('maps customer notification read state and type', () {
