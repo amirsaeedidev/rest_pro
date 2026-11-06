@@ -31,9 +31,9 @@ class CategoryService {
 
   /// Emits an initial snapshot and then keeps the customer catalog in sync.
   ///
-  /// Filtering on the database prevents inactive categories from being
-  /// included in customer-facing category results. The provider also filters
-  /// products against the active category IDs to avoid showing orphaned items.
+  /// The stream intentionally includes inactive rows so status changes remain
+  /// observable under Realtime. This mapper filters them from the customer UI.
+  /// The provider also filters products against active category IDs.
   static Stream<List<CategoryModel>> watchCategories() => _client
       .from('categories')
       .stream(primaryKey: ['id'])
