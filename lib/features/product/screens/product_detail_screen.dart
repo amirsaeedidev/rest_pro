@@ -263,13 +263,22 @@ class _FloatingProductCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Expanded(
-                    child: Text(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (product.hasDiscount)
+                          Text('${_formatPrice(product.originalPrice)} تومان', style: TextStyle(fontSize: 12, decoration: TextDecoration.lineThrough, color: subColor)),
+                        Text(
                       '${_formatPrice(product.price)} تومان',
                       style: const TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.w900,
                         color: AppColors.primary,
                       ),
+                        ),
+                        if (product.hasDiscount) Text('${product.discountPercent}٪ تخفیف', style: const TextStyle(fontSize: 11, color: AppColors.primary, fontWeight: FontWeight.w800)),
+                        if (!product.isAvailable) const Text('ناموجود', style: TextStyle(fontSize: 12, color: Colors.red, fontWeight: FontWeight.w800)),
+                      ],
                     ),
                   ),
                   Wrap(
@@ -700,7 +709,7 @@ class _FloatingBottomBar extends StatelessWidget {
                 child: SizedBox(
                   height: 52,
                   child: ElevatedButton.icon(
-                    onPressed: () => _showAddToCartSheet(context),
+                    onPressed: product.isActive && product.isAvailable ? () => _showAddToCartSheet(context) : null,
                     icon: Icon(
                       inCart
                           ? Icons.shopping_cart_rounded
@@ -708,7 +717,7 @@ class _FloatingBottomBar extends StatelessWidget {
                       size: 22,
                     ),
                     label: Text(
-                      inCart ? 'ویرایش سبد' : 'افزودن به سبد',
+                      !product.isActive || !product.isAvailable ? 'ناموجود' : (inCart ? 'ویرایش سبد' : 'افزودن به سبد'),
                       style: const TextStyle(
                         fontWeight: FontWeight.w700,
                         fontSize: 15,
@@ -875,7 +884,7 @@ class _AddToCartSheetState extends State<_AddToCartSheet> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: _confirmAdd,
+                onPressed: widget.product.isActive && widget.product.isAvailable ? _confirmAdd : null,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
@@ -901,11 +910,16 @@ class _AddToCartSheetState extends State<_AddToCartSheet> {
   }
 
   void _confirmAdd() {
-    context.read<CartProvider>().addItem(
+    final added = context.read<CartProvider>().addItem(
           widget.product,
           quantity: _quantity,
           note: _noteController.text.trim(),
         );
+    if (!added) {
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('این محصول در حال حاضر قابل سفارش نیست.')));
+      return;
+    }
     Navigator.pop(context);
     widget.onAdded('${widget.product.name} به سبد اضافه شد ✅');
   }
