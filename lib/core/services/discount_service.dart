@@ -30,9 +30,13 @@ class DiscountService {
   static Future<List<DiscountModel>> fetchAvailableDiscounts() async {
     try {
       final rows = await _client.rpc('list_customer_discounts');
+      final serverNow = DateTime.parse((await _client.rpc('get_customer_server_time')).toString());
 
       return (rows as List)
-          .map((r) => DiscountModel.fromJson(r as Map<String, dynamic>))
+          .map((r) => DiscountModel.fromJson({
+                ...Map<String, dynamic>.from(r as Map),
+                'server_now': serverNow.toIso8601String(),
+              }))
           .toList();
     } on PostgrestException catch (e) {
       throw Exception('خطا در دریافت تخفیف‌ها: ${e.message}');
@@ -45,11 +49,17 @@ class DiscountService {
       .stream(primaryKey: ['id'])
       .eq('is_active', true)
       .order('created_at', ascending: false)
-      .map(
-        (rows) => rows
-            .map((row) => DiscountModel.fromJson(row))
-            .toList(growable: false),
-      );
+      .asyncMap((rows) async {
+        final serverNow = DateTime.parse(
+          (await _client.rpc('get_customer_server_time')).toString(),
+        );
+        return rows
+            .map((row) => DiscountModel.fromJson({
+                  ...row,
+                  'server_now': serverNow.toIso8601String(),
+                }))
+            .toList(growable: false);
+      });
 
   // ── اعمال کد با validation کامل ──
   static Future<DiscountResult> applyCode({
@@ -76,6 +86,7 @@ class DiscountService {
           (result['message'] ?? 'کد تخفیف قابل استفاده نیست.').toString(),
         );
       }
+      final serverNow = DateTime.parse((await _client.rpc('get_customer_server_time')).toString());
       final discount = DiscountModel.fromJson({
         'id': result['discount_id'],
         'code': result['code'],
@@ -88,6 +99,7 @@ class DiscountService {
         'starts_at': result['starts_at'],
         'expires_at': result['expires_at'],
         'is_active': result['is_active'],
+        'server_now': serverNow.toIso8601String(),
       });
       final amount = (result['discount_amount'] as num?)?.round() ?? 0;
       return DiscountResult.ok(discount, amount);
