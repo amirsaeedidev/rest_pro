@@ -138,7 +138,7 @@ class HomeProvider extends ChangeNotifier {
         _error = null;
         notifyListeners();
       },
-      onError: (Object error) => debugPrint('Products realtime error: $error'),
+      onError: (Object error) { debugPrint('Products realtime error: $error'); refresh(); },
     );
   }
 
