@@ -6,7 +6,7 @@ import 'supabase_service.dart';
 class ProductService {
   static SupabaseClient get _client => SupabaseService.client;
   static const _columns =
-      'id, name, description, about_dish, price, discounted_price, discount_percent, is_discount_active, labels, image_url, rating, review_count, is_popular, category_id, is_active, is_available, unavailable_reason, sort_order';
+      'id, name, description, about_dish, price, discounted_price, discount_percent, is_discount_active, labels, image_url, rating, review_count, is_popular, category_id, created_at, is_active, is_available, unavailable_reason, sort_order';
 
   static List<ProductModel> _mapRows(List<dynamic> rows) => rows
       .map((row) => ProductModel.fromJson(Map<String, dynamic>.from(row as Map)))
