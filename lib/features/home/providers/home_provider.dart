@@ -223,9 +223,9 @@ class HomeProvider extends ChangeNotifier {
   void _scheduleCategoryReconnect() {
     if (_disposed || (_categoryReconnectTimer?.isActive ?? false)) return;
 
-    final exponent = _categoryReconnectAttempt.clamp(0, 5);
+    final exponent = _categoryReconnectAttempt.clamp(0, 5).toInt();
     final delaySeconds = exponent >= 5 ? 30 : 1 << exponent;
-    _categoryReconnectAttempt = (exponent + 1).clamp(0, 5);
+    _categoryReconnectAttempt = (exponent + 1).clamp(0, 5).toInt();
 
     _categoryReconnectTimer = Timer(
       Duration(seconds: delaySeconds),
