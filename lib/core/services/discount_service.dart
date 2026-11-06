@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../model/discount_model.dart';
+import '../model/cart_item_model.dart';
 
 class DiscountResult {
   final bool success;
@@ -28,11 +29,7 @@ class DiscountService {
   // ── خواندن کدهای تخفیف فعال (عمومی) ──
   static Future<List<DiscountModel>> fetchAvailableDiscounts() async {
     try {
-      final rows = await _client
-          .from(_table)
-          .select()
-          .eq('is_active', true)
-          .order('created_at', ascending: false);
+      final rows = await _client.rpc('list_customer_discounts');
 
       return (rows as List)
           .map((r) => DiscountModel.fromJson(r as Map<String, dynamic>))
@@ -57,45 +54,42 @@ class DiscountService {
   // ── اعمال کد با validation کامل ──
   static Future<DiscountResult> applyCode({
     required String code,
-    required int cartTotal,
+    required List<CartItemModel> items,
   }) async {
     final normalized = code.trim().toUpperCase();
     if (normalized.isEmpty) return DiscountResult.error('کد تخفیف را وارد کنید');
 
     try {
-      final row = await _client
-          .from(_table)
-          .select()
-          .eq('code', normalized)
-          .maybeSingle();
-
-      if (row == null) return DiscountResult.error('کد تخفیف معتبر نیست');
-
-      final discount = DiscountModel.fromJson(row);
-
-      if (discount.isExpired) {
-        return DiscountResult.error('این کد تخفیف منقضی شده است');
-      }
-      if (!discount.isActive) {
-        return DiscountResult.error('این کد تخفیف فعال نیست');
-      }
-
-      // بررسی حداقل مبلغ سفارش
-      if (discount.minOrderPrice != null &&
-          cartTotal < discount.minOrderPrice!) {
+      final response = await _client.rpc(
+        'quote_discount_code',
+        params: {
+          'p_code': normalized,
+          'p_items': items.map((item) => {
+            'product_id': item.product.id,
+            'quantity': item.quantity,
+          }).toList(growable: false),
+        },
+      );
+      final result = Map<String, dynamic>.from(response as Map);
+      if (result['success'] != true) {
         return DiscountResult.error(
-          'حداقل مبلغ سفارش برای این کد ${_formatPrice(discount.minOrderPrice!)} تومان است',
+          (result['message'] ?? 'کد تخفیف قابل استفاده نیست.').toString(),
         );
       }
-
-      // محاسبه مبلغ تخفیف
-      final raw = discount.type == DiscountType.percent
-          ? (cartTotal * discount.value / 100).round()
-          : discount.value.toInt();
-
-      // تخفیف هیچ‌وقت از کل سبد بیشتر نشود
-      final amount = raw > cartTotal ? cartTotal : raw;
-
+      final discount = DiscountModel.fromJson({
+        'id': result['discount_id'],
+        'code': result['code'],
+        'title': result['title'],
+        'description': result['description'],
+        'discount_type': result['discount_type'],
+        'discount_value': result['discount_value'],
+        'min_order_amount': result['min_order_amount'],
+        'max_discount_amount': result['max_discount_amount'],
+        'starts_at': result['starts_at'],
+        'expires_at': result['expires_at'],
+        'is_active': result['is_active'],
+      });
+      final amount = (result['discount_amount'] as num?)?.round() ?? 0;
       return DiscountResult.ok(discount, amount);
     } on PostgrestException catch (e) {
       return DiscountResult.error('خطای سرور: ${e.message}');
@@ -104,13 +98,10 @@ class DiscountService {
     }
   }
 
-  // ── ثبت استفاده بعد از پرداخت موفق ──
-  static Future<void> markAsUsed({required String discountId}) async {
-    // در دیتابیس شما جدول discount_usages وجود ندارد.
-    // برای Production بهتر است یک RPC بنویسید که used_count را یکی اضافه کند.
-    // فعلا برای جلوگیری از خطا، این متد فقط لاگ می‌اندازد.
-    print('Discount $discountId marked as used (locally).');
-  }
+  // Discount usage is committed atomically by place_order_idempotent.
+  // This compatibility method intentionally performs no database write.
+  @Deprecated('Usage is recorded by the transactional order RPC.')
+  static Future<void> markAsUsed({required String discountId}) async {}
 
   static String _formatPrice(int price) {
     final s = price.toString();
