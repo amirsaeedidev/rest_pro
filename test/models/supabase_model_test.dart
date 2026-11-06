@@ -49,6 +49,34 @@ void main() {
       expect(product.labels, contains('محبوب'));
     });
 
+    test('keeps base price when CRM discount is disabled and maps availability', () {
+      final product = ProductModel.fromJson({
+        'id': 'product-2',
+        'name': 'برگر',
+        'description': 'توضیح کوتاه',
+        'about_dish': 'توضیح کامل',
+        'price': 120000,
+        'discounted_price': 96000,
+        'discount_percent': 20,
+        'is_discount_active': false,
+        'is_active': true,
+        'is_available': false,
+        'unavailable_reason': 'اتمام موجودی',
+        'sort_order': 4,
+        'image_url': '',
+        'rating': 0,
+        'review_count': 0,
+        'is_popular': false,
+        'category_id': 'category-1',
+      });
+      expect(product.price, 120000);
+      expect(product.hasDiscount, isFalse);
+      expect(product.isActive, isTrue);
+      expect(product.isAvailable, isFalse);
+      expect(product.unavailableReason, 'اتمام موجودی');
+      expect(product.sortOrder, 4);
+    });
+
     test('maps CRM pickup and status values without treating pickup as delivery', () {
       final order = OrderModel.fromJson({
         'id': '12345678-aaaa-bbbb-cccc-123456789012',
