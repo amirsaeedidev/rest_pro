@@ -2,7 +2,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:my_project/core/model/banner_model.dart';
 import 'package:my_project/core/model/checkout_settings_model.dart';
 import 'package:my_project/core/model/notification_model.dart';
-import 'package:my_project/core/model/product_model.dart';
 import 'package:my_project/core/model/order_model.dart';
 import 'package:my_project/core/model/product_model.dart';
 
