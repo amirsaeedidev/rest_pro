@@ -18,22 +18,23 @@ class AddToCartButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cart = context.watch<CartProvider>();
+    final currentProduct = cart.latestProduct(product.id) ?? product;
     final quantity = cart.quantityOf(product.id);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final unavailable = !currentProduct.isActive || !currentProduct.isAvailable;
 
     // ── حالت ۱: هنوز در سبد نیست ──
     if (quantity == 0) {
       return GestureDetector(
-        onTap: () => cart.addItem(product, quantity: 1),
+        onTap: unavailable ? null : () => cart.addItem(currentProduct, quantity: 1),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           width: size,
           height: size,
           decoration: BoxDecoration(
-            color: AppColors.primary,
+            color: unavailable ? Colors.grey : AppColors.primary,
             borderRadius: BorderRadius.circular(size * 0.27),
           ),
-          child: Icon(Icons.add_rounded,
+          child: Icon(unavailable ? Icons.block_rounded : Icons.add_rounded,
               color: Colors.white, size: size * 0.66),
         ),
       );
@@ -72,7 +73,7 @@ class AddToCartButton extends StatelessWidget {
           _QtyBtn(
             icon: Icons.add_rounded,
             size: size,
-            onTap: () => cart.increment(product.id),
+            onTap: unavailable ? () {} : () => cart.increment(product.id),
           ),
         ],
       ),
