@@ -25,6 +25,46 @@ class CategoryModel {
         loyaltyPointsPerItem: _parseInt(json['loyalty_points_per_item']),
       );
 
+  ProductModel copyWith({
+    String? id,
+    String? name,
+    String? description,
+    int? price,
+    String? imageUrl,
+    double? rating,
+    int? reviewCount,
+    bool? isPopular,
+    String? categoryId,
+    int? originalPrice,
+    int? discountPercent,
+    List<String>? labels,
+    String? aboutDish,
+    bool? isActive,
+    bool? isAvailable,
+    bool? isDiscountActive,
+    String? unavailableReason,
+    int? sortOrder,
+  }) => ProductModel(
+        id: id ?? this.id,
+        name: name ?? this.name,
+        description: description ?? this.description,
+        price: price ?? this.price,
+        imageUrl: imageUrl ?? this.imageUrl,
+        rating: rating ?? this.rating,
+        reviewCount: reviewCount ?? this.reviewCount,
+        isPopular: isPopular ?? this.isPopular,
+        categoryId: categoryId ?? this.categoryId,
+        originalPrice: originalPrice ?? this.originalPrice,
+        discountPercent: discountPercent ?? this.discountPercent,
+        labels: labels ?? this.labels,
+        aboutDish: aboutDish ?? this.aboutDish,
+        isActive: isActive ?? this.isActive,
+        isAvailable: isAvailable ?? this.isAvailable,
+        isDiscountActive: isDiscountActive ?? this.isDiscountActive,
+        unavailableReason: unavailableReason ?? this.unavailableReason,
+        sortOrder: sortOrder ?? this.sortOrder,
+      );
+
   static int _parseInt(dynamic value) {
     if (value is num) return value.toInt();
     return int.tryParse(value?.toString() ?? '') ?? 0;
