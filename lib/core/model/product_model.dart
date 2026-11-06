@@ -29,7 +29,7 @@ class CategoryModel {
         name: json['name'] as String? ?? '',
         imageUrl: json['image_url'] as String? ?? '',
         sortOrder: _parseInt(json['sort_order']),
-        isActive: json['is_active'] as bool? ?? true,
+        isActive: json['is_active'] == true,
         loyaltyPointsPerItem: _parseInt(json['loyalty_points_per_item']),
       );
 
