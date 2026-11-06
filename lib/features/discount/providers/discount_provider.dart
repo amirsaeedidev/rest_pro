@@ -21,6 +21,7 @@ class DiscountProvider extends ChangeNotifier {
   String? _applyError;
   StreamSubscription<List<DiscountModel>>? _discountsSubscription;
   bool _disposed = false;
+  Timer? _serverRefreshTimer;
 
   // ── Getters ──
   List<DiscountModel> get all => List.unmodifiable(_discounts);
@@ -53,12 +54,31 @@ class DiscountProvider extends ChangeNotifier {
       _discounts = await DiscountService.fetchAvailableDiscounts();
       _loadState = DiscountLoadState.loaded;
       _subscribeToDiscountChanges();
+      _startServerRefresh();
     } catch (e) {
       _loadState = DiscountLoadState.error;
       _loadError = e.toString();
     }
 
     if (!_disposed) notifyListeners();
+  }
+
+  void _startServerRefresh() {
+    _serverRefreshTimer ??= Timer.periodic(const Duration(minutes: 1), (_) async {
+      if (_disposed) return;
+      try {
+        final latest = await DiscountService.fetchAvailableDiscounts();
+        if (_disposed) return;
+        _discounts = latest;
+        _loadState = DiscountLoadState.loaded;
+        _loadError = null;
+        notifyListeners();
+      } catch (error) {
+        if (_disposed) return;
+        _loadError = error.toString();
+        notifyListeners();
+      }
+    });
   }
 
   void _subscribeToDiscountChanges() {
@@ -151,6 +171,7 @@ class DiscountProvider extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _serverRefreshTimer?.cancel();
     _discountsSubscription?.cancel();
     super.dispose();
   }
