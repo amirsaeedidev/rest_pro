@@ -7,6 +7,35 @@ import 'package:my_project/core/model/product_model.dart';
 
 void main() {
   group('Supabase model mapping', () {
+    test('maps category active state and sort order', () {
+      final category = CategoryModel.fromJson({
+        'id': 'category-1',
+        'name': 'کباب‌ها',
+        'image_url': 'https://example.test/kebab.png',
+        'sort_order': 4,
+        'is_active': true,
+      });
+
+      final inactiveCategory = CategoryModel.fromJson({
+        'id': 'category-2',
+        'name': 'غیرفعال',
+        'image_url': '',
+        'sort_order': 5,
+        'is_active': false,
+      });
+      final nullStatusCategory = CategoryModel.fromJson({
+        'id': 'category-3',
+        'name': 'بدون وضعیت',
+        'image_url': '',
+        'sort_order': 6,
+      });
+
+      expect(category.sortOrder, 4);
+      expect(category.isActive, isTrue);
+      expect(inactiveCategory.isActive, isFalse);
+      expect(nullStatusCategory.isActive, isFalse);
+    });
+
     test('maps all editable CRM banner fields', () {
       final banner = BannerModel.fromJson({
         'id': 'banner-1',
