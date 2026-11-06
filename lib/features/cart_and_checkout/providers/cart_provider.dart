@@ -56,7 +56,8 @@ class CartProvider extends ChangeNotifier {
     }
   }
 
-  void addItem(ProductModel product, {int quantity = 1, String note = ''}) {
+  bool addItem(ProductModel product, {int quantity = 1, String note = ''}) {
+    if (!product.isActive || !product.isAvailable || quantity < 1) return false;
     final index = _items.indexWhere((e) => e.product.id == product.id);
     if (index == -1) {
       _items.add(CartItemModel(product: product, quantity: quantity, note: note));
@@ -66,11 +67,12 @@ class CartProvider extends ChangeNotifier {
     }
     _saveCartToPrefs();
     notifyListeners();
+    return true;
   }
 
   void increment(String productId) {
     final index = _items.indexWhere((e) => e.product.id == productId);
-    if (index != -1) {
+    if (index != -1 && _items[index].product.isActive && _items[index].product.isAvailable) {
       _items[index].quantity++;
       _saveCartToPrefs();
       notifyListeners();
