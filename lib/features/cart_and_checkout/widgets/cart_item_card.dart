@@ -97,6 +97,16 @@ class CartItemCard extends StatelessWidget {
                   ],
                 ),
 
+                if (!item.product.isActive || !item.product.isAvailable) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    item.product.unavailableReason.isNotEmpty
+                        ? 'ناموجود: ${item.product.unavailableReason}'
+                        : 'این محصول در حال حاضر ناموجود است؛ پیش از ثبت سفارش حذفش کنید.',
+                    style: const TextStyle(fontSize: 11, color: Colors.red, fontWeight: FontWeight.w700),
+                  ),
+                ],
+
                 // توضیحات آیتم
                 if (item.note.isNotEmpty) ...[
                   const SizedBox(height: 4),
