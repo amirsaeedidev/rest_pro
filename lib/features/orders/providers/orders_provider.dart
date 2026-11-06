@@ -229,6 +229,7 @@ class OrdersProvider extends ChangeNotifier {
           ? 'delivery'
           : (order.type == OrderType.pickup ? 'pickup' : 'dine_in');
       final fingerprint = jsonEncode({
+        'user_id': userId,
         'order_type': orderType,
         'items': itemsPayload,
         'address_id': order.addressId,
