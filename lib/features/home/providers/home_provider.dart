@@ -45,7 +45,7 @@ class HomeProvider extends ChangeNotifier {
   }
 
   List<ProductModel> get popularProducts =>
-      _products.where((product) => product.isPopular).toList(growable: false);
+      _products.where((product) => product.isPopular && product.isAvailable).toList(growable: false);
 
   HomeProvider() {
     refresh();
@@ -69,7 +69,7 @@ class HomeProvider extends ChangeNotifier {
           }),
       ProductService.getProducts()
           .then((items) {
-            _products = items;
+            _products = items.where((item) => item.isActive).toList(growable: false);
           })
           .catchError((Object error) {
             failedSources++;
@@ -132,7 +132,7 @@ class HomeProvider extends ChangeNotifier {
 
     _productSubscription = ProductService.watchProducts().listen(
       (items) {
-        _products = items;
+        _products = items.where((item) => item.isActive).toList(growable: false);
         _hasLoaded = true;
         _loading = false;
         _error = null;
