@@ -152,11 +152,12 @@ class HomeProvider extends ChangeNotifier {
     _categoryReconnectTimer?.cancel();
     _catalogReconnectTimer?.cancel();
     _categoryReconnectAttempt = 0;
-    _catalogReconnectAttempt = 0;
 
     _bannerSubscription = BannerService.watchBanners().listen(
       (items) {
         if (_disposed) return;
+        _catalogReconnectAttempt = 0;
+        _catalogReconnectTimer?.cancel();
         _banners = items;
         _hasLoaded = true;
         _loading = false;
@@ -174,6 +175,8 @@ class HomeProvider extends ChangeNotifier {
     _productSubscription = ProductService.watchProducts().listen(
       (items) {
         if (_disposed) return;
+        _catalogReconnectAttempt = 0;
+        _catalogReconnectTimer?.cancel();
         _products = items;
         _hasLoaded = true;
         _loading = false;
