@@ -359,6 +359,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               const SizedBox(height: 20),
               ElevatedButton(
                 onPressed: () async {
+                  final loyaltyProvider = context.read<LoyaltyProvider>();
                   final newOrder = OrderModel(
                     id: '',
                     orderCode: '',
@@ -392,7 +393,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     cart.clearCart();
                     // Loyalty points are awarded by the database only when the
                     // order reaches completed status; never award from the client.
-                    await context.read<LoyaltyProvider>().fetchPoints();
+                    await loyaltyProvider.fetchPoints();
+                    if (!context.mounted) return;
                     Navigator.pushAndRemoveUntil(
                       context,
                       MaterialPageRoute(
