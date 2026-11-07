@@ -12,6 +12,7 @@ class ProfileProvider extends ChangeNotifier {
   String? _error;
   String? _activeUserId;
   StreamSubscription<List<Map<String, dynamic>>>? _profileSubscription;
+  StreamSubscription<dynamic>? _authSubscription;
 
   UserModel? get user => _user;
   bool get isLoading => _isLoading;
@@ -20,6 +21,9 @@ class ProfileProvider extends ChangeNotifier {
 
   ProfileProvider() {
     fetchProfile();
+    _authSubscription = SupabaseService.client.auth.onAuthStateChange.listen((_) {
+      fetchProfile();
+    });
   }
 
   Future<void> fetchProfile() async {
@@ -125,12 +129,11 @@ class ProfileProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Clears profile presentation state without destroying the installation's
+  /// anonymous Supabase identity. AuthProvider owns the mock UI sign-out flow.
   Future<void> signOut() async {
-    await SupabaseService.client.auth.signOut();
     _user = null;
-    _activeUserId = null;
-    await _profileSubscription?.cancel();
-    _profileSubscription = null;
+    _error = null;
     notifyListeners();
   }
 
@@ -138,6 +141,7 @@ class ProfileProvider extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _profileSubscription?.cancel();
+    _authSubscription?.cancel();
     super.dispose();
   }
 }
