@@ -18,6 +18,8 @@ class OrdersProvider extends ChangeNotifier {
   int _fetchGeneration = 0;
   String? _pendingOrderRequestId;
   String? _pendingOrderFingerprint;
+  Timer? _ordersReconnectTimer;
+  int _ordersReconnectAttempt = 0;
   static const _pendingRequestIdKey = 'pending_order_request_id';
   static const _pendingRequestFingerprintKey = 'pending_order_request_fingerprint';
 
@@ -117,6 +119,8 @@ class OrdersProvider extends ChangeNotifier {
     if (_activeUserId == userId && _ordersSubscription != null) return;
     _activeUserId = userId;
     _ordersSubscription?.cancel();
+    _ordersReconnectTimer?.cancel();
+    _ordersReconnectAttempt = 0;
     _ordersSubscription = SupabaseService.client
         .from('orders')
         .stream(primaryKey: ['id'])
@@ -143,9 +147,30 @@ class OrdersProvider extends ChangeNotifier {
           debugPrint('Realtime customer order update failed: $error');
         }
       },
-      onError: (Object error) =>
-          debugPrint('Customer orders realtime stream failed: $error'),
+      onError: (Object error) {
+        debugPrint('Customer orders realtime stream failed: $error');
+        _ordersSubscription = null;
+        _scheduleOrdersReconnect(userId);
+      },
+      onDone: () {
+        _ordersSubscription = null;
+        _scheduleOrdersReconnect(userId);
+      },
     );
+  }
+
+  void _scheduleOrdersReconnect(String userId) {
+    if (!_mounted || (_ordersReconnectTimer?.isActive ?? false)) return;
+    final exponent = _ordersReconnectAttempt.clamp(0, 5).toInt();
+    final delaySeconds = exponent >= 5 ? 30 : 1 << exponent;
+    _ordersReconnectAttempt = (exponent + 1).clamp(0, 5).toInt();
+    _ordersReconnectTimer = Timer(Duration(seconds: delaySeconds), () {
+      if (!_mounted ||
+          SupabaseService.client.auth.currentUser?.id != userId) {
+        return;
+      }
+      fetchOrders();
+    });
   }
 
   Future<List<OrderModel>> _mapOrdersWithItems(
