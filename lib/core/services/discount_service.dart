@@ -105,14 +105,4 @@ class DiscountService {
   @Deprecated('Usage is recorded by the transactional order RPC.')
   static Future<void> markAsUsed({required String discountId}) async {}
 
-  static String _formatPrice(int price) {
-    final s = price.toString();
-    final buf = StringBuffer();
-    final offset = s.length % 3;
-    for (int i = 0; i < s.length; i++) {
-      if (i != 0 && (i - offset) % 3 == 0) buf.write(',');
-      buf.write(s[i]);
-    }
-    return buf.toString();
-  }
 }
