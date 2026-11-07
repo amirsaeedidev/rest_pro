@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_colors.dart';
 import '../../discount/providers/discount_provider.dart';
+import '../../cart_and_checkout/providers/cart_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
 
@@ -81,9 +82,10 @@ class _DiscountBoxState extends State<DiscountBox>
     final provider = context.read<DiscountProvider>();
 
     // اعمال کد (بدون userId)
+    final cartItems = context.read<CartProvider>().items;
     await provider.applyCode(
       code: code,
-      cartTotal: widget.cartTotal,
+      items: cartItems,
     );
 
     if (!mounted) return;

@@ -134,6 +134,14 @@ class _ProductCard extends StatelessWidget {
                         ),
                       ),
                     ),
+                  if (!product.isAvailable)
+                    Positioned.fill(
+                      child: Container(
+                        color: Colors.black.withValues(alpha: 0.52),
+                        alignment: Alignment.center,
+                        child: const Text('ناموجود', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w900)),
+                      ),
+                    ),
                   if (product.hasDiscount)
                     Positioned(
                       top: 8,
@@ -271,6 +279,7 @@ class _AddButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final cart = context.watch<CartProvider>();
     final inCart = cart.isInCart(product.id);
+    final unavailable = !product.isActive || !product.isAvailable;
 
     return GestureDetector(
       onTap: () => Navigator.push(
@@ -284,11 +293,11 @@ class _AddButton extends StatelessWidget {
         width: 30,
         height: 30,
         decoration: BoxDecoration(
-          color: inCart ? Colors.green : AppColors.primary,
+          color: unavailable ? Colors.grey : (inCart ? Colors.green : AppColors.primary),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Icon(
-          inCart ? Icons.check_rounded : Icons.add_rounded,
+          unavailable ? Icons.block_rounded : (inCart ? Icons.check_rounded : Icons.add_rounded),
           color: Colors.white,
           size: 20,
         ),
