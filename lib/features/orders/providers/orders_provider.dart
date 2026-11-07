@@ -22,8 +22,8 @@ class OrdersProvider extends ChangeNotifier {
   static const _pendingRequestFingerprintKey = 'pending_order_request_fingerprint';
 
   OrdersProvider() {
-    // This provider exists before the mock OTP flow completes. Refresh after its
-    // existing Supabase test session becomes available, without changing login.
+    // This provider is created before mock login. Refresh when the isolated
+    // anonymous Supabase guest session is created or restored.
     _authSubscription = SupabaseService.client.auth.onAuthStateChange.listen((_) {
       if (!_mounted) return;
       final userId = SupabaseService.client.auth.currentUser?.id;
