@@ -6,16 +6,21 @@ import 'supabase_service.dart';
 class CategoryService {
   static SupabaseClient get _client => SupabaseService.client;
 
+  static const String _columns =
+      'id, name, image_url, sort_order, is_active, loyalty_points_per_item';
+
+  /// Loads only categories that are currently available to customers.
   static Future<List<CategoryModel>> getCategories() async {
     try {
       final rows = await _client
           .from('categories')
-          .select('id, name, image_url, sort_order, loyalty_points_per_item')
+          .select(_columns)
           .eq('is_active', true)
-          .order('sort_order');
+          .order('sort_order', ascending: true);
 
       return (rows as List)
           .map((row) => CategoryModel.fromJson(row as Map<String, dynamic>))
+          .where((category) => category.isActive)
           .toList(growable: false);
     } on PostgrestException catch (e) {
       throw Exception('خطا در دریافت دسته‌بندی‌ها: ${e.message}');
@@ -24,14 +29,21 @@ class CategoryService {
     }
   }
 
+  /// Emits an initial snapshot and then keeps the customer catalog in sync.
+  ///
+  /// The stream intentionally includes inactive rows so status changes remain
+  /// observable under Realtime. This mapper filters them from the customer UI.
+  /// The provider also filters products against active category IDs.
   static Stream<List<CategoryModel>> watchCategories() => _client
       .from('categories')
       .stream(primaryKey: ['id'])
-      .eq('is_active', true)
-      .order('sort_order')
+      // Subscribe to inactive rows too, so deactivation events are observable.
+      // The mapper below keeps them out of the customer-facing catalog.
+      .order('sort_order', ascending: true)
       .map(
         (rows) => rows
             .map((row) => CategoryModel.fromJson(row))
+            .where((category) => category.isActive)
             .toList(growable: false),
       );
 }
