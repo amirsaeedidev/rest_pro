@@ -325,7 +325,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   Future<void> _handlePayment(BuildContext context, int total) async {
     final cart = context.read<CartProvider>();
     final refreshed = await cart.refreshCartFromServer();
-    if (!mounted) return;
+    if (!context.mounted) return;
     if (!refreshed) {
       _showError('بررسی قیمت و موجودی از سرور ناموفق بود؛ اتصال را بررسی و دوباره تلاش کنید.');
       return;
