@@ -2,6 +2,8 @@ name: Flutter APK Build
 
 on:
   push:
+    branches: [main, ci/verify-latest]
+  pull_request:
     branches: [main]
   workflow_dispatch:
 
