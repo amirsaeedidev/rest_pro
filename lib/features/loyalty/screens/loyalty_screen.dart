@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../providers/loyalty_provider.dart';
 import '../../../core/model/loyalty_model.dart';
+import '../../../shared/widgets/page_skeleton.dart';
 
 class LoyaltyScreen extends StatelessWidget {
   const LoyaltyScreen({super.key});
@@ -15,7 +16,7 @@ class LoyaltyScreen extends StatelessWidget {
 
     if (!loyalty.loaded) {
       return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
+        body: PageSkeleton(cardCount: 4, headerHeight: 160),
       );
     }
 
