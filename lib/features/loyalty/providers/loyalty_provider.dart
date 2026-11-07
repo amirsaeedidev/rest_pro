@@ -124,12 +124,6 @@ class LoyaltyProvider extends ChangeNotifier {
     return int.tryParse(value?.toString() ?? '') ?? 0;
   }
 
-  // این متد فعلاً کاری انجام نمی‌دهد چون امتیازها توسط مدیر اضافه می‌شوند
-  // اما برای جلوگیری از ارور در checkout_screen.dart نگه داشته شده است
-  Future<void> addPointsForOrder(int orderTotal) async {
-    // No-op: Admin will handle points manually
-  }
-
   // reset برای تست
   Future<void> resetPoints() async {
     _points = 0;

@@ -185,6 +185,50 @@ class _CartContent extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
       children: [
+        if (cart.priceChanges.isNotEmpty)
+          Container(
+            margin: const EdgeInsets.only(bottom: 14),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.orange.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Colors.orange.withValues(alpha: 0.45)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.info_outline_rounded, color: Colors.orange),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'قیمت بعضی محصولات تغییر کرده است',
+                        style: TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                for (final change in cart.priceChanges)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 5),
+                    child: Text(
+                      '${change.productName}: ${formatPrice(change.previousPrice)} ← ${formatPrice(change.currentPrice)}',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ),
+                const SizedBox(height: 6),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: cart.acceptPriceChanges,
+                    child: const Text('پذیرش قیمت‌های جدید'),
+                  ),
+                ),
+              ],
+            ),
+          ),
         // ── لیست آیتم‌ها ──
         ...cart.items.map((item) => CartItemCard(item: item)),
 

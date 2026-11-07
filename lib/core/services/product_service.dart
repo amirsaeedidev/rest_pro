@@ -84,6 +84,17 @@ class ProductService {
     }
   }
 
+  /// Reads the current server state for the exact products already in the cart.
+  /// Includes inactive rows so checkout can explain removals instead of silently dropping them.
+  static Future<List<ProductModel>> getProductsByIds(List<String> productIds) async {
+    if (productIds.isEmpty) return const [];
+    final rows = await _client
+        .from('products')
+        .select(_columns)
+        .inFilter('id', productIds);
+    return _mapRows(rows as List);
+  }
+
   // No server-side is_active filter: a deactivation event must reach the client.
   static Stream<List<ProductModel>> watchProducts() => _client
       .from('products')

@@ -33,7 +33,7 @@ class CartItemCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(isDark ? 0.2 : 0.06),
+            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.06),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -84,7 +84,7 @@ class CartItemCard extends StatelessWidget {
                         width: 30,
                         height: 30,
                         decoration: BoxDecoration(
-                          color: Colors.red.withOpacity(0.1),
+                          color: Colors.red.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: const Icon(
@@ -249,10 +249,8 @@ class _QBtn extends StatelessWidget {
     required this.icon,
     required this.onTap,
     required this.isDark,
-    this.isPrimary = false, this.color,
+    this.isPrimary = false,
   });
-
-  final Color? color;
   final IconData icon;
   final VoidCallback onTap;
   final bool isDark;
@@ -263,15 +261,14 @@ class _QBtn extends StatelessWidget {
     // ── رنگ پس‌زمینه (ایمن‌ترین حالت) ──
     final bg = isPrimary
         ? AppColors.primary
-        : (color?.withOpacity(0.1) ??
-            (isDark
-                ? Colors.white.withOpacity(0.1)
-                : Colors.black.withOpacity(0.06)));
+        : (isDark
+            ? Colors.white.withValues(alpha: 0.1)
+            : Colors.black.withValues(alpha: 0.06));
 
     // ── رنگ آیکون ──
     final iconColor = isPrimary
         ? Colors.white
-        : (color ?? (isDark ? AppColors.darkText : AppColors.lightText));
+        : (isDark ? AppColors.darkText : AppColors.lightText);
 
     return GestureDetector(
       onTap: onTap,

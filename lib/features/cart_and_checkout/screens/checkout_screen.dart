@@ -231,6 +231,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
             const SizedBox(height: 20),
 
+            if (cart.priceChanges.isNotEmpty) ...[
+              _CartPriceChangesNotice(
+                changes: cart.priceChanges,
+                onAccept: cart.acceptPriceChanges,
+                isDark: isDark,
+              ),
+              const SizedBox(height: 14),
+            ],
             _SectionTitle(title: 'کد تخفیف', isDark: isDark),
             const SizedBox(height: 10),
             _DiscountBox(
@@ -262,7 +270,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           total: total,
           isDark: isDark,
           formatPrice: _format,
-          onPay: () => _handlePayment(context, total),
+          onPay: () => _handlePayment(total),
         ),
       ),
     );
@@ -270,7 +278,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   bool _validate() {
     final cart = context.read<CartProvider>();
-    final unavailableItems = cart.items.where((item) => !item.product.isActive || !item.product.isAvailable).toList();
+    final unavailableItems = cart.unavailableItems;
+    if (cart.priceChanges.isNotEmpty) {
+      _showError('قیمت بعضی محصولات تغییر کرده است؛ ابتدا قیمت‌های جدید را بررسی و تأیید کنید.');
+      return false;
+    }
     if (unavailableItems.isNotEmpty) {
       _showError('محصول ناموجود در سبد دارید؛ ابتدا آن را حذف کنید.');
       return false;
@@ -310,7 +322,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
-  void _handlePayment(BuildContext context, int total) {
+  Future<void> _handlePayment(int total) async {
+    final cart = context.read<CartProvider>();
+    final refreshed = await cart.refreshCartFromServer();
+    if (!mounted) return;
+    if (!refreshed) {
+      _showError('بررسی قیمت و موجودی از سرور ناموفق بود؛ اتصال را بررسی و دوباره تلاش کنید.');
+      return;
+    }
     if (!_validate()) return;
     _showPaymentDialog(context, total);
   }
@@ -345,6 +364,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               const SizedBox(height: 20),
               ElevatedButton(
                 onPressed: () async {
+                  final loyaltyProvider = context.read<LoyaltyProvider>();
                   final newOrder = OrderModel(
                     id: '',
                     orderCode: '',
@@ -376,7 +396,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     }
                     
                     cart.clearCart();
-                    await context.read<LoyaltyProvider>().addPointsForOrder(total);
+                    // Loyalty points are awarded by the database only when the
+                    // order reaches completed status; never award from the client.
+                    await loyaltyProvider.fetchPoints();
+                    if (!context.mounted) return;
                     Navigator.pushAndRemoveUntil(
                       context,
                       MaterialPageRoute(
@@ -404,6 +427,75 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _CartPriceChangesNotice extends StatelessWidget {
+  const _CartPriceChangesNotice({
+    required this.changes,
+    required this.onAccept,
+    required this.isDark,
+  });
+
+  final List<CartPriceChange> changes;
+  final VoidCallback onAccept;
+  final bool isDark;
+
+  String _price(int value) {
+    final digits = value.toString();
+    final out = StringBuffer();
+    final offset = digits.length % 3;
+    for (var i = 0; i < digits.length; i++) {
+      if (i > 0 && (i - offset) % 3 == 0) out.write(',');
+      out.write(digits[i]);
+    }
+    return '$out تومان';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.orange.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.orange.withValues(alpha: 0.45)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.info_outline_rounded, color: Colors.orange),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'قیمت محصولات سبد تغییر کرده است',
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          for (final change in changes)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Text(
+                '${change.productName}: ${_price(change.previousPrice)} ← ${_price(change.currentPrice)}',
+                style: const TextStyle(fontSize: 12),
+              ),
+            ),
+          const SizedBox(height: 6),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              onPressed: onAccept,
+              child: const Text('بررسی و پذیرش قیمت‌های جدید'),
+            ),
+          ),
+        ],
       ),
     );
   }

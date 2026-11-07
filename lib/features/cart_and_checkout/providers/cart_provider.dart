@@ -6,10 +6,25 @@ import '../../../core/model/product_model.dart';
 import '../../../core/model/cart_item_model.dart';
 import '../../../core/services/product_service.dart';
 
+class CartPriceChange {
+  const CartPriceChange({
+    required this.productId,
+    required this.productName,
+    required this.previousPrice,
+    required this.currentPrice,
+  });
+
+  final String productId;
+  final String productName;
+  final int previousPrice;
+  final int currentPrice;
+}
+
 class CartProvider extends ChangeNotifier {
   static const _keyCart = 'cart_items';
   final List<CartItemModel> _items = [];
   final Map<String, ProductModel> _latestProducts = <String, ProductModel>{};
+  final Map<String, CartPriceChange> _priceChanges = <String, CartPriceChange>{};
   StreamSubscription<List<ProductModel>>? _productsSubscription;
 
   List<CartItemModel> get items => List.unmodifiable(_items);
@@ -17,6 +32,11 @@ class CartProvider extends ChangeNotifier {
   int get totalPrice => _items.fold(0, (sum, e) => sum + e.totalPrice);
 
   ProductModel? latestProduct(String productId) => _latestProducts[productId];
+  List<CartPriceChange> get priceChanges =>
+      List.unmodifiable(_priceChanges.values);
+  List<CartItemModel> get unavailableItems => _items
+      .where((item) => !item.product.isActive || !item.product.isAvailable)
+      .toList(growable: false);
 
   bool isInCart(String productId) =>
       _items.any((e) => e.product.id == productId);
@@ -52,8 +72,19 @@ class CartProvider extends ChangeNotifier {
       final current = _items[i].product;
       final latest = _latestProducts[current.id];
       final next = latest ?? current.copyWith(isActive: false, isAvailable: false);
+      final item = _items[i];
+      if (latest != null && latest.price != item.snapshotPrice) {
+        _priceChanges[current.id] = CartPriceChange(
+          productId: current.id,
+          productName: latest.name,
+          previousPrice: item.snapshotPrice,
+          currentPrice: latest.price,
+        );
+      } else {
+        _priceChanges.remove(current.id);
+      }
       if (next != current) {
-        _items[i] = _items[i].copyWith(product: next);
+        _items[i] = item.copyWith(product: next);
         changed = true;
       }
     }
@@ -61,6 +92,36 @@ class CartProvider extends ChangeNotifier {
       _saveCartToPrefs();
       notifyListeners();
     }
+  }
+
+  /// Re-checks cart prices and availability against Supabase before checkout.
+  Future<bool> refreshCartFromServer() async {
+    if (_items.isEmpty) return true;
+    try {
+      final products = await ProductService.getProductsByIds(
+        _items.map((item) => item.product.id).toList(growable: false),
+      );
+      _syncProductSnapshots(products);
+      return true;
+    } catch (error) {
+      debugPrint('Refreshing cart from Supabase failed: $error');
+      return false;
+    }
+  }
+
+  /// Accepts the newly fetched server prices after the customer has been warned.
+  void acceptPriceChanges() {
+    if (_priceChanges.isEmpty) return;
+    for (var i = 0; i < _items.length; i++) {
+      final item = _items[i];
+      _items[i] = item.copyWith(
+        snapshotName: item.product.name,
+        snapshotPrice: item.product.price,
+      );
+    }
+    _priceChanges.clear();
+    _saveCartToPrefs();
+    notifyListeners();
   }
 
   // بارگذاری سبد خرید از حافظه محلی
@@ -74,6 +135,7 @@ class CartProvider extends ChangeNotifier {
         _items.addAll(list.map((e) => CartItemModel.fromJson(e)).toList());
         _applyLatestProductsToCart();
         notifyListeners();
+        await refreshCartFromServer();
       }
     } catch (e) {
       print("Error loading cart: $e");
@@ -130,6 +192,7 @@ class CartProvider extends ChangeNotifier {
 
   void removeItem(String productId) {
     _items.removeWhere((e) => e.product.id == productId);
+    _priceChanges.remove(productId);
     _saveCartToPrefs();
     notifyListeners();
   }
@@ -145,6 +208,7 @@ class CartProvider extends ChangeNotifier {
 
   void clearCart() {
     _items.clear();
+    _priceChanges.clear();
     _saveCartToPrefs();
     notifyListeners();
   }
