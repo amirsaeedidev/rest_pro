@@ -1,11 +1,12 @@
 name: Flutter Analyze
+# Includes the stacked phase-3 discounts PR base branch.
 # Validates the current PR head after each catalog integration update.
 
 on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+    branches: [main, feature/products-supabase-sync]
   workflow_dispatch:
 
 permissions:

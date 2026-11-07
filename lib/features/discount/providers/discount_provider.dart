@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import '../../../core/model/discount_model.dart';
+import '../../../core/model/cart_item_model.dart';
 import '../../../core/services/discount_service.dart';
 
 /// وضعیت لودینگ Provider
@@ -20,6 +21,7 @@ class DiscountProvider extends ChangeNotifier {
   String? _applyError;
   StreamSubscription<List<DiscountModel>>? _discountsSubscription;
   bool _disposed = false;
+  Timer? _serverRefreshTimer;
 
   // ── Getters ──
   List<DiscountModel> get all => List.unmodifiable(_discounts);
@@ -52,12 +54,31 @@ class DiscountProvider extends ChangeNotifier {
       _discounts = await DiscountService.fetchAvailableDiscounts();
       _loadState = DiscountLoadState.loaded;
       _subscribeToDiscountChanges();
+      _startServerRefresh();
     } catch (e) {
       _loadState = DiscountLoadState.error;
       _loadError = e.toString();
     }
 
     if (!_disposed) notifyListeners();
+  }
+
+  void _startServerRefresh() {
+    _serverRefreshTimer ??= Timer.periodic(const Duration(minutes: 1), (_) async {
+      if (_disposed) return;
+      try {
+        final latest = await DiscountService.fetchAvailableDiscounts();
+        if (_disposed) return;
+        _discounts = latest;
+        _loadState = DiscountLoadState.loaded;
+        _loadError = null;
+        notifyListeners();
+      } catch (error) {
+        if (_disposed) return;
+        _loadError = error.toString();
+        notifyListeners();
+      }
+    });
   }
 
   void _subscribeToDiscountChanges() {
@@ -90,7 +111,7 @@ class DiscountProvider extends ChangeNotifier {
   // ────────────────────────────────────────────
   Future<void> applyCode({
     required String code,
-    required int cartTotal,
+    required List<CartItemModel> items,
   }) async {
     if (code.trim().isEmpty) return;
 
@@ -100,7 +121,7 @@ class DiscountProvider extends ChangeNotifier {
 
     final result = await DiscountService.applyCode(
       code: code,
-      cartTotal: cartTotal,
+      items: items,
     );
 
     if (result.success) {
@@ -130,25 +151,17 @@ class DiscountProvider extends ChangeNotifier {
   // ────────────────────────────────────────────
   // علامت‌گذاری به‌عنوان استفاده‌شده (بعد از پرداخت)
   // ────────────────────────────────────────────
-  Future<void> markAppliedAsUsed() async {
-    if (_appliedDiscount == null) return;
-
-    await DiscountService.markAsUsed(
-      discountId: _appliedDiscount!.id,
-    );
-
-    // آپدیت local state
-    final index = _discounts.indexWhere((d) => d.id == _appliedDiscount!.id);
-    if (index != -1) {
-      _discounts[index] = _discounts[index].copyWith(status: DiscountStatus.used);
-    }
-
+  /// Clears the local selection after the order RPC commits redemption.
+  void clearAppliedAfterOrder() {
     removeDiscount();
-    notifyListeners();
   }
 
   // ── reset کامل (هنگام logout) ──
   void reset() {
+    _serverRefreshTimer?.cancel();
+    _serverRefreshTimer = null;
+    _discountsSubscription?.cancel();
+    _discountsSubscription = null;
     _discounts = [];
     _loadState = DiscountLoadState.idle;
     _loadError = null;
@@ -162,6 +175,7 @@ class DiscountProvider extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _serverRefreshTimer?.cancel();
     _discountsSubscription?.cancel();
     super.dispose();
   }
