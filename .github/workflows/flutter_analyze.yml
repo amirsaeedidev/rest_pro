@@ -4,7 +4,7 @@ name: Flutter Analyze
 
 on:
   push:
-    branches: [main]
+    branches: [main, integration/phase11-customer-identity]
   pull_request:
     branches: [main, feature/products-supabase-sync]
   workflow_dispatch:
