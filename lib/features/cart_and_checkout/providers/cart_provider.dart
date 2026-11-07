@@ -95,15 +95,17 @@ class CartProvider extends ChangeNotifier {
   }
 
   /// Re-checks cart prices and availability against Supabase before checkout.
-  Future<void> refreshCartFromServer() async {
-    if (_items.isEmpty) return;
+  Future<bool> refreshCartFromServer() async {
+    if (_items.isEmpty) return true;
     try {
       final products = await ProductService.getProductsByIds(
         _items.map((item) => item.product.id).toList(growable: false),
       );
       _syncProductSnapshots(products);
+      return true;
     } catch (error) {
       debugPrint('Refreshing cart from Supabase failed: $error');
+      return false;
     }
   }
 
