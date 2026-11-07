@@ -270,7 +270,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           total: total,
           isDark: isDark,
           formatPrice: _format,
-          onPay: () => _handlePayment(context, total),
+          onPay: () => _handlePayment(total),
         ),
       ),
     );
@@ -322,10 +322,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     );
   }
 
-  Future<void> _handlePayment(BuildContext context, int total) async {
+  Future<void> _handlePayment(int total) async {
     final cart = context.read<CartProvider>();
     final refreshed = await cart.refreshCartFromServer();
-    if (!context.mounted) return;
+    if (!mounted) return;
     if (!refreshed) {
       _showError('بررسی قیمت و موجودی از سرور ناموفق بود؛ اتصال را بررسی و دوباره تلاش کنید.');
       return;
