@@ -13,6 +13,8 @@ class LoyaltyProvider extends ChangeNotifier {
   int _fetchGeneration = 0;
   StreamSubscription<dynamic>? _authSubscription;
   StreamSubscription<List<Map<String, dynamic>>>? _walletSubscription;
+  Timer? _walletReconnectTimer;
+  int _walletReconnectAttempt = 0;
 
   int get points => _points;
   bool get isLoading => _isLoading;
@@ -70,6 +72,8 @@ class LoyaltyProvider extends ChangeNotifier {
         _activeUserId = null;
         await _walletSubscription?.cancel();
         _walletSubscription = null;
+        _walletReconnectTimer?.cancel();
+        _walletReconnectAttempt = 0;
         return;
       }
 
@@ -104,6 +108,7 @@ class LoyaltyProvider extends ChangeNotifier {
     }
     _activeUserId = userId;
     _walletSubscription?.cancel();
+    _walletReconnectTimer?.cancel();
     _walletSubscription = SupabaseService.client
         .from('loyalty_wallets')
         .stream(primaryKey: ['id'])
@@ -111,12 +116,34 @@ class LoyaltyProvider extends ChangeNotifier {
         .listen(
       (rows) {
         if (_disposed || _activeUserId != userId) return;
+        _walletReconnectAttempt = 0;
+        _walletReconnectTimer?.cancel();
         _points = rows.isEmpty ? 0 : _parsePoints(rows.first['total_points']);
         _loaded = true;
         notifyListeners();
       },
-      onError: (Object error) => debugPrint('Loyalty realtime error: $error'),
+      onError: (Object error) {
+        debugPrint('Loyalty realtime error: $error');
+        _walletSubscription = null;
+        _scheduleWalletReconnect(userId);
+      },
+      onDone: () {
+        _walletSubscription = null;
+        _scheduleWalletReconnect(userId);
+      },
     );
+  }
+
+  void _scheduleWalletReconnect(String userId) {
+    if (_disposed || (_walletReconnectTimer?.isActive ?? false)) return;
+    final exponent = _walletReconnectAttempt.clamp(0, 5).toInt();
+    final delaySeconds = exponent >= 5 ? 30 : 1 << exponent;
+    _walletReconnectAttempt = (exponent + 1).clamp(0, 5).toInt();
+    _walletReconnectTimer = Timer(Duration(seconds: delaySeconds), () {
+      if (_disposed ||
+          SupabaseService.client.auth.currentUser?.id != userId) return;
+      fetchPoints();
+    });
   }
 
   static int _parsePoints(dynamic value) {
@@ -136,6 +163,7 @@ class LoyaltyProvider extends ChangeNotifier {
     _fetchGeneration++;
     _authSubscription?.cancel();
     _walletSubscription?.cancel();
+    _walletReconnectTimer?.cancel();
     super.dispose();
   }
 }
