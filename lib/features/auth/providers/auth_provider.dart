@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../../../core/services/supabase_service.dart';
 
 enum AuthStatus {
@@ -12,13 +13,13 @@ class AuthProvider extends ChangeNotifier {
   static const _keyIsLoggedIn = 'isLoggedIn';
   static const _keyPhone = 'userPhone';
 
-  // ============================================================
-  // DEVELOPMENT TEST ACCOUNT
-  // ============================================================
-
-  static const String _testEmail = 'dev@restaurant.test';
-  static const String _testPassword = 'RestaurantDev@1234';
-  static const String _testCode = '1234';
+  // This code only controls the mock UI flow. It is not an authentication
+  // factor; Supabase Anonymous Auth provides the server-side identity.
+  static const _mockOtpCode = String.fromEnvironment(
+    'MOCK_LOGIN_CODE',
+    defaultValue: '1234',
+  );
+  static const _legacySharedEmail = 'dev@restaurant.test';
 
   AuthStatus _status = AuthStatus.unknown;
   String _phone = '';
@@ -31,83 +32,66 @@ class AuthProvider extends ChangeNotifier {
   String? get userId => _userId;
   bool get isLoading => _isLoading;
   String? get error => _error;
-
-  bool get isAuthenticated =>
-      _status == AuthStatus.authenticated;
+  bool get isAuthenticated => _status == AuthStatus.authenticated;
 
   AuthProvider() {
     _checkLoginStatus();
   }
 
-  // ============================================================
-  // CHECK LOGIN STATUS
-  // ============================================================
-
   Future<void> _checkLoginStatus() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      final auth = SupabaseService.client.auth;
+      final currentUser = auth.currentUser;
+      final session = auth.currentSession;
 
-      _phone = prefs.getString(_keyPhone) ?? '';
-
-      // بررسی Session واقعی Supabase
-      final session =
-          SupabaseService.client.auth.currentSession;
-
-      final currentUser =
-          SupabaseService.client.auth.currentUser;
-
-      if (session != null && currentUser != null) {
-        _userId = currentUser.id;
-        _status = AuthStatus.authenticated;
-
-        debugPrint('AUTH: Existing Supabase session found');
-        debugPrint('AUTH USER ID: ${currentUser.id}');
-      } else {
+      // Retire the legacy shared account. It must never be reused by customers.
+      if (currentUser?.email == _legacySharedEmail) {
+        await auth.signOut();
         await prefs.remove(_keyIsLoggedIn);
-
+        await prefs.remove(_keyPhone);
+        _phone = '';
         _userId = null;
         _status = AuthStatus.unauthenticated;
-
-        debugPrint('AUTH: No active session');
+      } else if (session != null && currentUser != null) {
+        _userId = currentUser.id;
+        _phone = prefs.getString(_keyPhone) ?? '';
+        _status = prefs.getBool(_keyIsLoggedIn) == true
+            ? AuthStatus.authenticated
+            : AuthStatus.unauthenticated;
+      } else {
+        await prefs.remove(_keyIsLoggedIn);
+        await prefs.remove(_keyPhone);
+        _phone = '';
+        _userId = null;
+        _status = AuthStatus.unauthenticated;
       }
-    } catch (e, stackTrace) {
-      debugPrint('AUTH CHECK ERROR: $e');
+    } catch (error, stackTrace) {
+      debugPrint('AUTH CHECK ERROR: $error');
       debugPrintStack(stackTrace: stackTrace);
-
       _status = AuthStatus.unauthenticated;
       _userId = null;
     }
-
     notifyListeners();
   }
 
-  // ============================================================
-  // SEND OTP - MOCK
-  // ============================================================
-
+  /// Mock send step: no SMS provider or real OTP request is called.
   Future<bool> sendOtp(String phone) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
-      await Future.delayed(
-        const Duration(milliseconds: 500),
-      );
-
+      await Future.delayed(const Duration(milliseconds: 350));
       _phone = phone.trim();
-
       if (_phone.isEmpty) {
         _error = 'شماره تلفن را وارد کنید';
         return false;
       }
-
-      debugPrint('DEV LOGIN PHONE: $_phone');
-      debugPrint('DEV LOGIN CODE: $_testCode');
-
       return true;
-    } catch (e) {
-      _error = 'خطا در ارسال کد';
+    } catch (error) {
+      debugPrint('MOCK LOGIN SEND STEP FAILED: $error');
+      _error = 'خطا در ادامه فرایند ورود آزمایشی';
       return false;
     } finally {
       _isLoading = false;
@@ -115,114 +99,55 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  // ============================================================
-  // VERIFY OTP - DEVELOPMENT LOGIN
-  //
-  // هر شماره + کد 1234
-  // وارد یک User واقعی در Supabase می‌شود.
-  // ============================================================
-
+  /// Keeps the existing mock OTP screen, but creates/reuses one isolated
+  /// anonymous Supabase identity for this app installation.
   Future<bool> verifyOtp(String code) async {
     _isLoading = true;
     _error = null;
     notifyListeners();
 
     try {
-      // ----------------------------------------------------------
-      // بررسی کد تست
-      // ----------------------------------------------------------
-
-      if (code.trim() != _testCode) {
+      if (code.trim() != _mockOtpCode) {
         _error = 'کد وارد شده اشتباه است';
         return false;
       }
-      // ----------------------------------------------------------
-      // بررسی شماره
-      // ----------------------------------------------------------
-
       if (_phone.trim().isEmpty) {
         _error = 'شماره تلفن وارد نشده است';
         return false;
       }
 
-      // ----------------------------------------------------------
-      // ورود به User واقعی Supabase
-      // ----------------------------------------------------------
-
-      debugPrint('========== DEV LOGIN ==========');
-      debugPrint('PHONE: $_phone');
-      debugPrint('EMAIL: $_testEmail');
-
-      final response =
-          await SupabaseService.client.auth.signInWithPassword(
-        email: _testEmail,
-        password: _testPassword,
-      );
-
-      final user = response.user;
-      final session = response.session;
-
-      // ----------------------------------------------------------
-      // بررسی Session
-      // ----------------------------------------------------------
-
-      if (user == null) {
-        throw Exception(
-          'Supabase User ایجاد نشد',
-        );
+      final auth = SupabaseService.client.auth;
+      if (auth.currentUser?.email == _legacySharedEmail) {
+        await auth.signOut();
       }
 
-      if (session == null) {
-        throw Exception(
-          'Supabase Session ایجاد نشد',
-        );
+      var user = auth.currentUser;
+      var session = auth.currentSession;
+
+      if (user == null || session == null) {
+        final response = await auth.signInAnonymously();
+        user = response.user;
+        session = response.session;
       }
 
-      // ----------------------------------------------------------
-      // ذخیره اطلاعات
-      // ----------------------------------------------------------
+      if (user == null || session == null) {
+        throw StateError('Supabase guest identity/session was not created.');
+      }
 
       _userId = user.id;
 
-      final prefs =
-          await SharedPreferences.getInstance();
-
-      await prefs.setBool(
-        _keyIsLoggedIn,
-        true,
-      );
-
-      await prefs.setString(
-        _keyPhone,
-        _phone,
-      );
-
-      // ----------------------------------------------------------
-      // Authentication موفق
-      // ----------------------------------------------------------
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_keyIsLoggedIn, true);
+      await prefs.setString(_keyPhone, _phone);
 
       _status = AuthStatus.authenticated;
-
-      debugPrint('LOGIN SUCCESS');
-      debugPrint('USER ID: ${user.id}');
-      debugPrint('PHONE: $_phone');
-      debugPrint('SESSION: ACTIVE');
-      debugPrint('==============================');
-
       return true;
-    } catch (e, stackTrace) {
-      debugPrint('========== LOGIN ERROR ==========');
-      debugPrint(e.toString());
-      debugPrintStack(
-        stackTrace: stackTrace,
-      );
-      debugPrint('=================================');
-
-      _error = e.toString();
-
+    } catch (error, stackTrace) {
+      debugPrint('MOCK GUEST LOGIN FAILED: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      _error = 'ورود آزمایشی انجام نشد. تنظیم Anonymous Auth و اتصال را بررسی کنید.';
       _status = AuthStatus.unauthenticated;
-      _userId = null;
-
+      _userId = SupabaseService.client.auth.currentUser?.id;
       return false;
     } finally {
       _isLoading = false;
@@ -230,34 +155,22 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  // ============================================================
-  // SIGN OUT
-  // ============================================================
-
+  /// UI logout only. Keep the anonymous Supabase session on this installation
+  /// so existing orders, wallet and loyalty data remain attached to its UID.
   Future<void> signOut() async {
     try {
-      final prefs =
-          await SharedPreferences.getInstance();
-
+      final prefs = await SharedPreferences.getInstance();
       await prefs.remove(_keyIsLoggedIn);
       await prefs.remove(_keyPhone);
 
-      // خروج واقعی از Supabase
-      await SupabaseService.client.auth.signOut();
-
       _status = AuthStatus.unauthenticated;
       _phone = '';
-      _userId = null;
+      _userId = SupabaseService.client.auth.currentUser?.id;
       _error = null;
-
-      debugPrint('AUTH: Signed out');
-    } catch (e, stackTrace) {
-      debugPrint('SIGN OUT ERROR: $e');
-      debugPrintStack(
-        stackTrace: stackTrace,
-      );
+    } catch (error, stackTrace) {
+      debugPrint('MOCK UI SIGN OUT FAILED: $error');
+      debugPrintStack(stackTrace: stackTrace);
     }
-
     notifyListeners();
   }
 }
