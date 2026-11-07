@@ -5,6 +5,7 @@ import '../../../core/model/discount_model.dart';
 import '../../cart_and_checkout/providers/cart_provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../providers/discount_provider.dart';
+import '../../../shared/widgets/page_skeleton.dart';
 
 class DiscountScreen extends StatefulWidget {
   /// cartTotal فقط وقتی این صفحه از داخل checkout باز می‌شود معنی دارد؛
@@ -147,7 +148,7 @@ class _DiscountScreenState extends State<DiscountScreen>
   Widget _buildBody(DiscountProvider provider, bool isDark) {
     // حالت لودینگ
     if (provider.isLoading && provider.all.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return const PageSkeleton(cardCount: 4, showHeader: false);
     }
     // حالت خطا
     if (provider.loadState == DiscountLoadState.error && provider.all.isEmpty) {
