@@ -47,8 +47,8 @@ class LoyaltyProvider extends ChangeNotifier {
   }
 
   LoyaltyProvider() {
-    // This provider is created before the mock OTP flow signs into the test user.
-    // Refresh the wallet when the existing Supabase auth session changes.
+    // This provider is created before mock login. Refresh the wallet when the
+    // isolated anonymous Supabase guest session is created or restored.
     _authSubscription = SupabaseService.client.auth.onAuthStateChange.listen((_) {
       fetchPoints();
     });
