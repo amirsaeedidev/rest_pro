@@ -159,7 +159,7 @@ class OrdersProvider extends ChangeNotifier {
     try {
       final itemRows = await SupabaseService.client
           .from('order_items')
-          .select('order_id, product_id, quantity, unit_price, products(name)')
+          .select('order_id, product_id, product_name, quantity, unit_price, products(name)')
           .inFilter('order_id', orderIds);
 
       for (final rawRow in itemRows as List) {
@@ -172,7 +172,7 @@ class OrdersProvider extends ChangeNotifier {
         if (orderId.isEmpty) continue;
         final item = OrderItemModel(
           productId: row['product_id']?.toString() ?? '',
-          productName: product['name'] as String? ?? 'محصول حذف‌شده',
+          productName: row['product_name'] as String? ?? product['name'] as String? ?? 'محصول حذف‌شده',
           quantity: (row['quantity'] as num?)?.toInt() ?? 1,
           unitPrice: (row['unit_price'] as num?)?.round() ?? 0,
         );
@@ -267,7 +267,7 @@ class OrdersProvider extends ChangeNotifier {
       // The live Supabase RPC returns the new order UUID, not an order JSON row.
       final orderId = response?.toString() ?? '';
       if (orderId.isEmpty) {
-        throw const FormatException('place_order did not return an order id');
+        throw const FormatException('place_order_idempotent did not return an order id');
       }
 
       var savedOrder = order.copyWith(
