@@ -3,6 +3,8 @@ name: Flutter Analyze
 on:
   push:
     branches: [main, ci/verify-latest]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
