@@ -10,6 +10,7 @@ import '../../orders/screens/recent_orders_screen.dart';
 import '../../orders/screens/order_tracking_screen.dart';
 import '../providers/profile_provider.dart';
 import '../widgets/edit_profile_sheet.dart';
+import '../../../shared/widgets/page_skeleton.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -26,7 +27,7 @@ class ProfileScreen extends StatelessWidget {
 
     // هندل کردن حالت لودینگ یا نبود کاربر
     if (profile.isLoading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(body: PageSkeleton(cardCount: 5, headerHeight: 180));
     }
 
     if (user == null) {
