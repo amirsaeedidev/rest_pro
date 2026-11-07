@@ -26,6 +26,8 @@ class HomeProvider extends ChangeNotifier {
   StreamSubscription<List<CategoryModel>>? _categorySubscription;
   StreamSubscription<List<ProductModel>>? _productSubscription;
   Timer? _categoryReconnectTimer;
+  Timer? _catalogReconnectTimer;
+  int _catalogReconnectAttempt = 0;
 
   List<CategoryModel> get categories => List.unmodifiable(_categories);
   List<BannerModel> get banners => List.unmodifiable(_banners);
@@ -148,7 +150,9 @@ class HomeProvider extends ChangeNotifier {
     _bannerSubscription?.cancel();
     _productSubscription?.cancel();
     _categoryReconnectTimer?.cancel();
+    _catalogReconnectTimer?.cancel();
     _categoryReconnectAttempt = 0;
+    _catalogReconnectAttempt = 0;
 
     _bannerSubscription = BannerService.watchBanners().listen(
       (items) {
@@ -158,8 +162,11 @@ class HomeProvider extends ChangeNotifier {
         _loading = false;
         notifyListeners();
       },
-      onError: (Object error) =>
-          debugPrint('Banners realtime error: $error'),
+      onError: (Object error) {
+        debugPrint('Banners realtime error: $error');
+        _scheduleCatalogReconnect();
+      },
+      onDone: _scheduleCatalogReconnect,
     );
 
     _subscribeToCategoryChanges();
@@ -172,8 +179,11 @@ class HomeProvider extends ChangeNotifier {
         _loading = false;
         notifyListeners();
       },
-      onError: (Object error) =>
-          debugPrint('Products realtime error: $error'),
+      onError: (Object error) {
+        debugPrint('Products realtime error: $error');
+        _scheduleCatalogReconnect();
+      },
+      onDone: _scheduleCatalogReconnect,
     );
   }
 
@@ -221,6 +231,22 @@ class HomeProvider extends ChangeNotifier {
     }
   }
 
+  void _scheduleCatalogReconnect() {
+    if (_disposed || (_catalogReconnectTimer?.isActive ?? false)) return;
+
+    final exponent = _catalogReconnectAttempt.clamp(0, 5).toInt();
+    final delaySeconds = exponent >= 5 ? 30 : 1 << exponent;
+    _catalogReconnectAttempt = (exponent + 1).clamp(0, 5).toInt();
+
+    _catalogReconnectTimer = Timer(
+      Duration(seconds: delaySeconds),
+      () {
+        if (_disposed) return;
+        refresh();
+      },
+    );
+  }
+
   void _scheduleCategoryReconnect() {
     if (_disposed || (_categoryReconnectTimer?.isActive ?? false)) return;
 
@@ -258,6 +284,7 @@ class HomeProvider extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _categoryReconnectTimer?.cancel();
+    _catalogReconnectTimer?.cancel();
     _bannerSubscription?.cancel();
     _categorySubscription?.cancel();
     _productSubscription?.cancel();
