@@ -13,6 +13,8 @@ class ProfileProvider extends ChangeNotifier {
   String? _activeUserId;
   StreamSubscription<List<Map<String, dynamic>>>? _profileSubscription;
   StreamSubscription<dynamic>? _authSubscription;
+  Timer? _profileReconnectTimer;
+  int _profileReconnectAttempt = 0;
 
   UserModel? get user => _user;
   bool get isLoading => _isLoading;
@@ -35,6 +37,8 @@ class ProfileProvider extends ChangeNotifier {
     try {
       final userId = SupabaseService.client.auth.currentUser?.id;
       if (userId == null) {
+        _profileReconnectTimer?.cancel();
+        _profileReconnectAttempt = 0;
         _user = null;
         _activeUserId = null;
         await _profileSubscription?.cancel();
@@ -79,12 +83,34 @@ class ProfileProvider extends ChangeNotifier {
         .listen(
       (rows) {
         if (_disposed || _activeUserId != userId) return;
+        _profileReconnectAttempt = 0;
+        _profileReconnectTimer?.cancel();
         _user = rows.isEmpty ? null : UserModel.fromJson(rows.first);
         _error = null;
         notifyListeners();
       },
-      onError: (Object error) => debugPrint('Profile realtime error: $error'),
+      onError: (Object error) {
+        debugPrint('Profile realtime error: $error');
+        _profileSubscription = null;
+        _scheduleProfileReconnect(userId);
+      },
+      onDone: () {
+        _profileSubscription = null;
+        _scheduleProfileReconnect(userId);
+      },
     );
+  }
+
+  void _scheduleProfileReconnect(String userId) {
+    if (_disposed || (_profileReconnectTimer?.isActive ?? false)) return;
+    final exponent = _profileReconnectAttempt.clamp(0, 5).toInt();
+    final delaySeconds = exponent >= 5 ? 30 : 1 << exponent;
+    _profileReconnectAttempt = (exponent + 1).clamp(0, 5).toInt();
+    _profileReconnectTimer = Timer(Duration(seconds: delaySeconds), () {
+      if (_disposed ||
+          SupabaseService.client.auth.currentUser?.id != userId) return;
+      fetchProfile();
+    });
   }
 
   Future<bool> updateUser({String? firstName, String? lastName}) async {
@@ -141,6 +167,7 @@ class ProfileProvider extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _profileSubscription?.cancel();
+    _profileReconnectTimer?.cancel();
     _authSubscription?.cancel();
     super.dispose();
   }
