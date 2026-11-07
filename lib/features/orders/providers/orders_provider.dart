@@ -120,7 +120,6 @@ class OrdersProvider extends ChangeNotifier {
     _activeUserId = userId;
     _ordersSubscription?.cancel();
     _ordersReconnectTimer?.cancel();
-    _ordersReconnectAttempt = 0;
     _ordersSubscription = SupabaseService.client
         .from('orders')
         .stream(primaryKey: ['id'])
@@ -128,6 +127,8 @@ class OrdersProvider extends ChangeNotifier {
         .order('created_at', ascending: false)
         .listen(
       (rows) async {
+        _ordersReconnectAttempt = 0;
+        _ordersReconnectTimer?.cancel();
         try {
           final previousItems = <String, List<OrderItemModel>>{
             for (final order in _orders)
