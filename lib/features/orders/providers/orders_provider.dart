@@ -285,14 +285,30 @@ class OrdersProvider extends ChangeNotifier {
             .toList(growable: false),
       );
 
-      // Use authoritative totals/status saved by the RPC when the row is readable.
+      // Read authoritative order totals and immutable item snapshots saved by the RPC.
       try {
-        final row = await client.from('orders').select().eq('id', orderId).single();
-        savedOrder = OrderModel.fromJson(Map<String, dynamic>.from(row)).copyWith(
-          items: savedOrder.items,
-        );
+        final responses = await Future.wait<dynamic>([
+          client.from('orders').select().eq('id', orderId).single(),
+          client
+              .from('order_items')
+              .select('order_id, product_id, product_name, quantity, unit_price')
+              .eq('order_id', orderId),
+        ]);
+        final row = Map<String, dynamic>.from(responses[0] as Map);
+        final itemRows = (responses[1] as List)
+            .map((raw) => Map<String, dynamic>.from(raw as Map))
+            .toList(growable: false);
+        final snapshotItems = itemRows
+            .map((item) => OrderItemModel(
+                  productId: item['product_id']?.toString() ?? '',
+                  productName: item['product_name']?.toString() ?? 'محصول حذف‌شده',
+                  quantity: (item['quantity'] as num?)?.toInt() ?? 1,
+                  unitPrice: (item['unit_price'] as num?)?.round() ?? 0,
+                ))
+            .toList(growable: false);
+        savedOrder = OrderModel.fromJson(row).copyWith(items: snapshotItems);
       } catch (error) {
-        debugPrint('Order created, but its confirmation row could not be re-read: $error');
+        debugPrint('Order created, but its authoritative snapshot could not be re-read: $error');
       }
 
       _upsertOrder(savedOrder);
