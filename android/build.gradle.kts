@@ -26,13 +26,20 @@ subprojects {
         plugins.withId("com.android.library") {
             extensions.configure<com.android.build.api.variant.AndroidComponentsExtension<*, *, *>>("androidComponents") {
                 finalizeDsl { androidExtension ->
-                    // The wildcard AndroidComponentsExtension type erases the
-                    // DSL-specific properties in Kotlin. Cast to the library DSL
-                    // used by this Android library module before setting them.
-                    val libraryExtension =
-                        androidExtension as com.android.build.gradle.LibraryExtension
-                    libraryExtension.namespace = "dev.isar.isar_flutter_libs"
-                    libraryExtension.compileSdk = 36
+                    // Avoid casting AGP's decorated DSL implementation: in some
+                    // Gradle classloader layouts it is not cast-compatible with
+                    // the LibraryExtension class loaded by this build script.
+                    val dsl = androidExtension as Any
+                    val namespaceSetter = dsl.javaClass.methods.firstOrNull {
+                        it.name == "setNamespace" && it.parameterCount == 1
+                    } ?: error("Isar Android DSL does not expose setNamespace")
+                    namespaceSetter.invoke(dsl, "dev.isar.isar_flutter_libs")
+
+                    val compileSdkSetter = dsl.javaClass.methods.firstOrNull {
+                        it.name == "setCompileSdk" &&
+                            it.parameterTypes.contentEquals(arrayOf(Int::class.javaPrimitiveType))
+                    } ?: error("Isar Android DSL does not expose setCompileSdk(int)")
+                    compileSdkSetter.invoke(dsl, 36)
                 }
             }
         }
