@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -17,14 +19,32 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   String? _userId;
   Stream<List<NotificationModel>>? _notificationsStream;
   bool _markingAll = false;
+  StreamSubscription<dynamic>? _authSubscription;
 
   @override
   void initState() {
     super.initState();
     _userId = Supabase.instance.client.auth.currentUser?.id;
-    if (_userId != null) {
-      _notificationsStream = NotificationService.watchForUser(_userId!);
-    }
+    _setNotificationIdentity(_userId);
+    _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((_) {
+      if (!mounted) return;
+      final nextUserId = Supabase.instance.client.auth.currentUser?.id;
+      if (nextUserId == _userId) return;
+      setState(() => _setNotificationIdentity(nextUserId));
+    });
+  }
+
+  void _setNotificationIdentity(String? userId) {
+    _userId = userId;
+    _notificationsStream = userId == null
+        ? null
+        : NotificationService.watchForUser(userId);
+  }
+
+  @override
+  void dispose() {
+    _authSubscription?.cancel();
+    super.dispose();
   }
 
   Future<void> _markAllAsRead() async {
