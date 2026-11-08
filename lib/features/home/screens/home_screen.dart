@@ -8,6 +8,7 @@ import '../../../core/theme/app_colors.dart';
 import '../../../shared/widgets/shimmer_skeleton.dart';
 import '../../notifications/screens/notifications_screen.dart';
 import '../providers/home_provider.dart';
+import '../../../shared/providers/navigation_provider.dart';
 import '../widgets/category_tabs.dart';
 import '../widgets/product_grid.dart';
 
@@ -117,15 +118,26 @@ class _HomeViewState extends State<_HomeView> with TickerProviderStateMixin {
                 isDark ? AppColors.darkBackground : AppColors.lightBackground,
             elevation: 0,
             // ⬅️ منو به leading (سمت راست در RTL)
+            automaticallyImplyLeading: false,
             leading: _showSearch
                 ? null
                 : Padding(
-                    padding: const EdgeInsets.only(right: 8,top: 2),
-                    child: GestureDetector(
-                      onTap: () => Scaffold.of(context).openDrawer(),
-                      child: Container(
-                        width: 5,
-                        height: 5,
+                    padding: const EdgeInsets.only(right: 8, top: 2),
+                    child: IconButton(
+                      tooltip: 'باز کردن منو',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints.tightFor(
+                        width: 48,
+                        height: 48,
+                      ),
+                      onPressed: () => context
+                          .read<NavigationProvider>()
+                          .scaffoldKey
+                          .currentState
+                          ?.openDrawer(),
+                      icon: Container(
+                        width: 40,
+                        height: 40,
                         decoration: BoxDecoration(
                           color: isDark
                               ? Colors.white.withValues(alpha: 0.08)
