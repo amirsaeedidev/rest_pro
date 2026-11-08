@@ -19,7 +19,8 @@ pluginManagement {
 
 plugins {
     id("dev.flutter.flutter-plugin-loader") version "1.0.0"
-    id("com.android.application") version "8.8.2" apply false
+    // Flutter stable 3.47+ requires AGP 8.11.1 or newer.
+    id("com.android.application") version "8.11.1" apply false
     id("org.jetbrains.kotlin.android") version "2.2.20" apply false
 }
 
