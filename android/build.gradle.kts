@@ -35,11 +35,21 @@ subprojects {
                     } ?: error("Isar Android DSL does not expose setNamespace")
                     namespaceSetter.invoke(dsl, "dev.isar.isar_flutter_libs")
 
-                    val compileSdkSetter = dsl.javaClass.methods.firstOrNull {
-                        it.name == "setCompileSdk" &&
-                            it.parameterTypes.contentEquals(arrayOf(Int::class.javaPrimitiveType))
-                    } ?: error("Isar Android DSL does not expose setCompileSdk(int)")
-                    compileSdkSetter.invoke(dsl, 36)
+                    // AGP 8 exposes the legacy-compatible compileSdkVersion(Int)
+                    // method on the decorated DSL implementation. The Kotlin
+                    // compileSdk property setter is not surfaced as setCompileSdk.
+                    val compileSdkMethod = dsl.javaClass.methods.firstOrNull {
+                        (it.name == "compileSdkVersion" || it.name == "setCompileSdk") &&
+                            it.parameterCount == 1 &&
+                            (it.parameterTypes[0] == Int::class.javaPrimitiveType ||
+                                it.parameterTypes[0] == Int::class.javaObjectType)
+                    } ?: error(
+                        "Isar Android DSL does not expose compileSdkVersion(int); available methods: " +
+                            dsl.javaClass.methods
+                                .filter { it.name.contains("compileSdk", ignoreCase = true) }
+                                .joinToString { method -> method.toGenericString() }
+                    )
+                    compileSdkMethod.invoke(dsl, 36)
                 }
             }
         }
