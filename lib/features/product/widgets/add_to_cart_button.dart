@@ -19,7 +19,6 @@ class AddToCartButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final cart = context.watch<CartProvider>();
     final quantity = cart.quantityOf(product.id);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     // ── حالت ۱: هنوز در سبد نیست ──
     if (quantity == 0) {
