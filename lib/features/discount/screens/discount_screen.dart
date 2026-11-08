@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../../../core/model/discount_model.dart';
+import '../../cart_and_checkout/providers/cart_provider.dart';
 import '../../../core/theme/app_colors.dart';
 import '../providers/discount_provider.dart';
 
@@ -50,9 +51,10 @@ class _DiscountScreenState extends State<DiscountScreen>
 
     final provider = context.read<DiscountProvider>();
     // حذف widget.userId
+    final cartItems = context.read<CartProvider>().items;
     await provider.applyCode(
       code: code,
-      cartTotal: widget.cartTotal,
+      items: cartItems,
     );
 
     if (!mounted) return;

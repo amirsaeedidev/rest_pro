@@ -34,7 +34,15 @@ class MainWrapper extends StatelessWidget {
       create: (_) => ProfileProvider(),
       child: Directionality(
         textDirection: TextDirection.rtl,
-        child: Scaffold(
+        child: PopScope<Object?>(
+          canPop: Navigator.of(context).canPop(),
+          onPopInvokedWithResult: (didPop, result) {
+            if (!didPop) {
+              context.read<NavigationProvider>().handleBack();
+            }
+          },
+          child: Scaffold(
+            key: context.read<NavigationProvider>().scaffoldKey,
           // باعث می‌شود Body زیر BottomNav قرار بگیرد
           // تا BackdropFilter بتواند محتوای پشت NavBar را Blur کند
           extendBody: true,
@@ -48,6 +56,7 @@ class MainWrapper extends StatelessWidget {
 
           bottomNavigationBar: _BottomNav(
             isDark: isDark,
+          ),
           ),
         ),
       ),

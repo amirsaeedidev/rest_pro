@@ -1,6 +1,9 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
+import 'package:uuid/uuid.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../../core/model/cart_item_model.dart';
 import '../../../core/model/order_model.dart';
 import '../../../core/services/supabase_service.dart';
@@ -13,6 +16,10 @@ class OrdersProvider extends ChangeNotifier {
   StreamSubscription<List<Map<String, dynamic>>>? _ordersSubscription;
   StreamSubscription<dynamic>? _authSubscription;
   int _fetchGeneration = 0;
+  String? _pendingOrderRequestId;
+  String? _pendingOrderFingerprint;
+  static const _pendingRequestIdKey = 'pending_order_request_id';
+  static const _pendingRequestFingerprintKey = 'pending_order_request_fingerprint';
 
   OrdersProvider() {
     // This provider exists before the mock OTP flow completes. Refresh after its
@@ -152,7 +159,7 @@ class OrdersProvider extends ChangeNotifier {
     try {
       final itemRows = await SupabaseService.client
           .from('order_items')
-          .select('order_id, product_id, quantity, unit_price, products(name)')
+          .select('order_id, product_id, product_name, quantity, unit_price, products(name)')
           .inFilter('order_id', orderIds);
 
       for (final rawRow in itemRows as List) {
@@ -165,7 +172,7 @@ class OrdersProvider extends ChangeNotifier {
         if (orderId.isEmpty) continue;
         final item = OrderItemModel(
           productId: row['product_id']?.toString() ?? '',
-          productName: product['name'] as String? ?? 'محصول حذف‌شده',
+          productName: row['product_name'] as String? ?? product['name'] as String? ?? 'محصول حذف‌شده',
           quantity: (row['quantity'] as num?)?.toInt() ?? 1,
           unitPrice: (row['unit_price'] as num?)?.round() ?? 0,
         );
@@ -218,12 +225,35 @@ class OrdersProvider extends ChangeNotifier {
               })
           .toList(growable: false);
 
+      final orderType = order.type == OrderType.delivery
+          ? 'delivery'
+          : (order.type == OrderType.pickup ? 'pickup' : 'dine_in');
+      final fingerprint = jsonEncode({
+        'user_id': userId,
+        'order_type': orderType,
+        'items': itemsPayload,
+        'address_id': order.addressId,
+        'address_line': order.address,
+        'table_number': order.tableNumber,
+        'table_id': order.tableId,
+        'note': order.note,
+        'discount_code': discountCode,
+      });
+      final prefs = await SharedPreferences.getInstance();
+      _pendingOrderRequestId ??= prefs.getString(_pendingRequestIdKey);
+      _pendingOrderFingerprint ??= prefs.getString(_pendingRequestFingerprintKey);
+      if (_pendingOrderFingerprint != fingerprint || _pendingOrderRequestId == null) {
+        _pendingOrderFingerprint = fingerprint;
+        _pendingOrderRequestId = const Uuid().v4();
+        await prefs.setString(_pendingRequestFingerprintKey, fingerprint);
+        await prefs.setString(_pendingRequestIdKey, _pendingOrderRequestId!);
+      }
+
       final response = await client.rpc(
-        'place_order',
+        'place_order_idempotent',
         params: {
-          'p_order_type': order.type == OrderType.delivery
-              ? 'delivery'
-              : (order.type == OrderType.pickup ? 'pickup' : 'dine_in'),
+          'p_client_request_id': _pendingOrderRequestId,
+          'p_order_type': orderType,
           'p_items': itemsPayload,
           'p_address_id': order.addressId,
           'p_address_line': order.address,
@@ -237,7 +267,7 @@ class OrdersProvider extends ChangeNotifier {
       // The live Supabase RPC returns the new order UUID, not an order JSON row.
       final orderId = response?.toString() ?? '';
       if (orderId.isEmpty) {
-        throw const FormatException('place_order did not return an order id');
+        throw const FormatException('place_order_idempotent did not return an order id');
       }
 
       var savedOrder = order.copyWith(
@@ -255,17 +285,37 @@ class OrdersProvider extends ChangeNotifier {
             .toList(growable: false),
       );
 
-      // Use authoritative totals/status saved by the RPC when the row is readable.
+      // Read authoritative order totals and immutable item snapshots saved by the RPC.
       try {
-        final row = await client.from('orders').select().eq('id', orderId).single();
-        savedOrder = OrderModel.fromJson(Map<String, dynamic>.from(row)).copyWith(
-          items: savedOrder.items,
-        );
+        final responses = await Future.wait<dynamic>([
+          client.from('orders').select().eq('id', orderId).single(),
+          client
+              .from('order_items')
+              .select('order_id, product_id, product_name, quantity, unit_price')
+              .eq('order_id', orderId),
+        ]);
+        final row = Map<String, dynamic>.from(responses[0] as Map);
+        final itemRows = (responses[1] as List)
+            .map((raw) => Map<String, dynamic>.from(raw as Map))
+            .toList(growable: false);
+        final snapshotItems = itemRows
+            .map((item) => OrderItemModel(
+                  productId: item['product_id']?.toString() ?? '',
+                  productName: item['product_name']?.toString() ?? 'محصول حذف‌شده',
+                  quantity: (item['quantity'] as num?)?.toInt() ?? 1,
+                  unitPrice: (item['unit_price'] as num?)?.round() ?? 0,
+                ))
+            .toList(growable: false);
+        savedOrder = OrderModel.fromJson(row).copyWith(items: snapshotItems);
       } catch (error) {
-        debugPrint('Order created, but its confirmation row could not be re-read: $error');
+        debugPrint('Order created, but its authoritative snapshot could not be re-read: $error');
       }
 
       _upsertOrder(savedOrder);
+      _pendingOrderRequestId = null;
+      _pendingOrderFingerprint = null;
+      await prefs.remove(_pendingRequestIdKey);
+      await prefs.remove(_pendingRequestFingerprintKey);
       _error = null;
       if (_activeUserId != userId || _ordersSubscription == null) {
         _subscribeToOrderChanges(userId);

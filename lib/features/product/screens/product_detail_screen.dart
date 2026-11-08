@@ -68,7 +68,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cart = context.watch<CartProvider>();
-    final inCart = cart.isInCart(widget.product.id);
+    final product = cart.latestProduct(widget.product.id) ?? widget.product;
+    final inCart = cart.isInCart(product.id);
 
     return Directionality(
       textDirection: TextDirection.rtl,
@@ -92,7 +93,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                   flexibleSpace: FlexibleSpaceBar(
                     collapseMode: CollapseMode.parallax,
                     background: _HeroSection(
-                      product: widget.product,
+                      product: product,
                       isDark: isDark,
                       fadeAnimation: _fadeAnimation,
                       slideAnimation: _slideAnimation,
@@ -105,7 +106,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
                     child: SlideTransition(
                       position: _slideAnimation,
                       child: _ContentSection(
-                        product: widget.product,
+                        product: product,
                         isDark: isDark,
                       ),
                     ),
@@ -129,7 +130,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen>
           ],
         ),
         bottomNavigationBar: _FloatingBottomBar(
-          product: widget.product,
+          product: product,
           inCart: inCart,
           isDark: isDark,
           onAddedToCart: _triggerAddedToCartAnimation,
@@ -263,13 +264,22 @@ class _FloatingProductCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Expanded(
-                    child: Text(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (product.hasDiscount)
+                          Text('${_formatPrice(product.originalPrice)} تومان', style: TextStyle(fontSize: 12, decoration: TextDecoration.lineThrough, color: subColor)),
+                        Text(
                       '${_formatPrice(product.price)} تومان',
                       style: const TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.w900,
                         color: AppColors.primary,
                       ),
+                        ),
+                        if (product.hasDiscount) Text('${product.discountPercent}٪ تخفیف', style: const TextStyle(fontSize: 11, color: AppColors.primary, fontWeight: FontWeight.w800)),
+                        if (!product.isAvailable) const Text('ناموجود', style: TextStyle(fontSize: 12, color: Colors.red, fontWeight: FontWeight.w800)),
+                      ],
                     ),
                   ),
                   Wrap(
@@ -283,18 +293,12 @@ class _FloatingProductCard extends StatelessWidget {
                           color: Colors.deepOrange,
                           isDark: isDark,
                         ),
+                      ...product.labels.take(3).map((label) => _GlassBadge(icon: Icons.local_offer_outlined, label: label, color: AppColors.secondary, isDark: isDark)),
                       if (product.rating > 0)
                         _GlassBadge(
                           icon: Icons.star_rounded,
                           label: product.rating.toStringAsFixed(1),
                           color: AppColors.secondary,
-                          isDark: isDark,
-                        ),
-                      if (product.reviewCount > 0)
-                        _GlassBadge(
-                          icon: Icons.reviews_rounded,
-                          label: '${product.reviewCount}',
-                          color: subColor,
                           isDark: isDark,
                         ),
                     ],
@@ -498,7 +502,7 @@ class _PremiumNotificationState extends State<_PremiumNotification>
 }
 
 // ─────────────────────────────────────────────────────
-// Content Section: Description & Reviews
+// Content Section: Food Description
 // ─────────────────────────────────────────────────────
 class _ContentSection extends StatelessWidget {
   const _ContentSection({required this.product, required this.isDark});
@@ -507,6 +511,8 @@ class _ContentSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final secondary = isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
+    final primary = isDark ? AppColors.darkText : AppColors.lightText;
     return Transform.translate(
       offset: const Offset(0, -24),
       child: Container(
@@ -517,11 +523,7 @@ class _ContentSection extends StatelessWidget {
             topRight: Radius.circular(32),
           ),
           boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.08),
-              blurRadius: 20,
-              offset: const Offset(0, -4),
-            ),
+            BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 20, offset: const Offset(0, -4)),
           ],
         ),
         child: Padding(
@@ -529,84 +531,21 @@ class _ContentSection extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'درباره این غذا',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: isDark ? AppColors.darkText : AppColors.lightText,
-                ),
-              ),
+              Text('توضیحات غذا و مواد تشکیل‌دهنده', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: primary)),
               const SizedBox(height: 12),
-              Text(
-                product.aboutDish.trim().isNotEmpty
-                    ? product.aboutDish
-                    : product.description,
-                style: TextStyle(
-                  fontSize: 14,
-                  height: 1.8,
-                  color: isDark
-                      ? AppColors.darkTextSecondary
-                      : AppColors.lightTextSecondary,
-                ),
-              ),
-              const SizedBox(height: 28),
-              _ReviewSection(product: product, isDark: isDark),
+              if (product.aboutDish.trim().isNotEmpty)
+                Text(product.aboutDish.trim(), style: TextStyle(fontSize: 14, height: 1.9, color: secondary))
+              else if (product.description.trim().isNotEmpty)
+                Text(product.description.trim(), style: TextStyle(fontSize: 14, height: 1.9, color: secondary))
+              else
+                Text('هنوز توضیحی برای این غذا ثبت نشده است.', style: TextStyle(fontSize: 13, height: 1.8, color: secondary)),
+              if (!product.isAvailable && product.unavailableReason.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Text('علت ناموجودی: ${product.unavailableReason}', style: const TextStyle(color: Colors.red, fontWeight: FontWeight.w600)),
+              ],
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _ReviewSection extends StatelessWidget {
-  const _ReviewSection({required this.product, required this.isDark});
-  final ProductModel product;
-  final bool isDark;
-
-  @override
-  Widget build(BuildContext context) {
-    final secondary =
-        isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.06),
-        ),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(Icons.reviews_outlined, color: AppColors.primary, size: 24),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'نظرات مشتریان',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: isDark ? AppColors.darkText : AppColors.lightText,
-                  ),
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  product.reviewCount > 0
-                      ? '${product.reviewCount} نظر در اطلاعات محصول ثبت شده؛ جزئیات نظرها در حال حاضر در دسترس نیست.'
-                      : 'هنوز نظری برای این غذا ثبت نشده است.',
-                  style: TextStyle(fontSize: 12, height: 1.6, color: secondary),
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -700,7 +639,7 @@ class _FloatingBottomBar extends StatelessWidget {
                 child: SizedBox(
                   height: 52,
                   child: ElevatedButton.icon(
-                    onPressed: () => _showAddToCartSheet(context),
+                    onPressed: product.isActive && product.isAvailable ? () => _showAddToCartSheet(context) : null,
                     icon: Icon(
                       inCart
                           ? Icons.shopping_cart_rounded
@@ -708,7 +647,7 @@ class _FloatingBottomBar extends StatelessWidget {
                       size: 22,
                     ),
                     label: Text(
-                      inCart ? 'ویرایش سبد' : 'افزودن به سبد',
+                      !product.isActive || !product.isAvailable ? 'ناموجود' : (inCart ? 'ویرایش سبد' : 'افزودن به سبد'),
                       style: const TextStyle(
                         fontWeight: FontWeight.w700,
                         fontSize: 15,
@@ -875,7 +814,7 @@ class _AddToCartSheetState extends State<_AddToCartSheet> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: _confirmAdd,
+                onPressed: widget.product.isActive && widget.product.isAvailable ? _confirmAdd : null,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
@@ -901,11 +840,16 @@ class _AddToCartSheetState extends State<_AddToCartSheet> {
   }
 
   void _confirmAdd() {
-    context.read<CartProvider>().addItem(
+    final added = context.read<CartProvider>().addItem(
           widget.product,
           quantity: _quantity,
           note: _noteController.text.trim(),
         );
+    if (!added) {
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('این محصول در حال حاضر قابل سفارش نیست.')));
+      return;
+    }
     Navigator.pop(context);
     widget.onAdded('${widget.product.name} به سبد اضافه شد ✅');
   }

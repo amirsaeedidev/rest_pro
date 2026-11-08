@@ -56,7 +56,6 @@ class _SplashScreenState extends State<SplashScreen>
   late final AnimationController _ctrl;
   late final Animation<double> _fade;
   late final Animation<double> _scale;
-  late final Animation<Color?> _bg;
 
   @override
   void initState() {
@@ -67,11 +66,6 @@ class _SplashScreenState extends State<SplashScreen>
     _fade = CurvedAnimation(parent: _ctrl, curve: Curves.easeIn);
     _scale = Tween(begin: 0.7, end: 1.0).animate(
         CurvedAnimation(parent: _ctrl, curve: Curves.elasticOut));
-    _bg = ColorTween(begin: AppColors.primary, end: Colors.transparent)
-        .animate(CurvedAnimation(
-            parent: _ctrl,
-            curve: const Interval(0.4, 1.0, curve: Curves.easeInOut)));
-
     _ctrl.forward();
     Future.delayed(const Duration(milliseconds: 2200), _goOnboarding);
   }

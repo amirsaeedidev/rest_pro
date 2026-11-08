@@ -3,6 +3,8 @@ name: Flutter APK Build
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -42,6 +44,9 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Setup Gradle cache
+        uses: gradle/actions/setup-gradle@v4
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
@@ -54,11 +59,24 @@ jobs:
       - name: Resolve dependencies
         run: flutter pub get
 
-      - name: Build release APK
+      - name: Build release APK (retry transient download failures)
+        shell: bash
         run: |
-          flutter build apk --release --no-pub \
-            --dart-define=SUPABASE_URL="$SUPABASE_URL" \
-            --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            echo "APK build attempt $attempt/3"
+            if flutter build apk --release --no-pub \
+              --dart-define=SUPABASE_URL="$SUPABASE_URL" \
+              --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"; then
+              exit 0
+            fi
+            if [ "$attempt" -lt 3 ]; then
+              echo "Build failed; retrying in 20 seconds..."
+              sleep 20
+            fi
+          done
+          echo "::error::APK build failed after 3 attempts."
+          exit 1
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v5
