@@ -301,13 +301,6 @@ class _FloatingProductCard extends StatelessWidget {
                           color: AppColors.secondary,
                           isDark: isDark,
                         ),
-                      if (product.reviewCount > 0)
-                        _GlassBadge(
-                          icon: Icons.reviews_rounded,
-                          label: '${product.reviewCount}',
-                          color: subColor,
-                          isDark: isDark,
-                        ),
                     ],
                   ),
                 ],
@@ -509,7 +502,7 @@ class _PremiumNotificationState extends State<_PremiumNotification>
 }
 
 // ─────────────────────────────────────────────────────
-// Content Section: Description & Reviews
+// Content Section: Food Description
 // ─────────────────────────────────────────────────────
 class _ContentSection extends StatelessWidget {
   const _ContentSection({required this.product, required this.isDark});
@@ -538,77 +531,21 @@ class _ContentSection extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('درباره این غذا', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: primary)),
+              Text('توضیحات غذا و مواد تشکیل‌دهنده', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: primary)),
               const SizedBox(height: 12),
-              if (product.description.trim().isNotEmpty)
-                Text(product.description, style: TextStyle(fontSize: 14, height: 1.8, color: secondary)),
-              if (product.aboutDish.trim().isNotEmpty && product.aboutDish.trim() != product.description.trim()) ...[
-                const SizedBox(height: 12),
-                Text('توضیحات کامل', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: primary)),
-                const SizedBox(height: 6),
-                Text(product.aboutDish, style: TextStyle(fontSize: 14, height: 1.8, color: secondary)),
-              ],
+              if (product.aboutDish.trim().isNotEmpty)
+                Text(product.aboutDish.trim(), style: TextStyle(fontSize: 14, height: 1.9, color: secondary))
+              else if (product.description.trim().isNotEmpty)
+                Text(product.description.trim(), style: TextStyle(fontSize: 14, height: 1.9, color: secondary))
+              else
+                Text('هنوز توضیحی برای این غذا ثبت نشده است.', style: TextStyle(fontSize: 13, height: 1.8, color: secondary)),
               if (!product.isAvailable && product.unavailableReason.isNotEmpty) ...[
                 const SizedBox(height: 12),
                 Text('علت ناموجودی: ${product.unavailableReason}', style: const TextStyle(color: Colors.red, fontWeight: FontWeight.w600)),
               ],
-              const SizedBox(height: 28),
-              _ReviewSection(product: product, isDark: isDark),
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _ReviewSection extends StatelessWidget {
-  const _ReviewSection({required this.product, required this.isDark});
-  final ProductModel product;
-  final bool isDark;
-
-  @override
-  Widget build(BuildContext context) {
-    final secondary =
-        isDark ? AppColors.darkTextSecondary : AppColors.lightTextSecondary;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.darkSurface : AppColors.lightSurface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.06),
-        ),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(Icons.reviews_outlined, color: AppColors.primary, size: 24),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'نظرات مشتریان',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: isDark ? AppColors.darkText : AppColors.lightText,
-                  ),
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  product.reviewCount > 0
-                      ? '${product.reviewCount} نظر در اطلاعات محصول ثبت شده؛ جزئیات نظرها در حال حاضر در دسترس نیست.'
-                      : 'هنوز نظری برای این غذا ثبت نشده است.',
-                  style: TextStyle(fontSize: 12, height: 1.6, color: secondary),
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }
