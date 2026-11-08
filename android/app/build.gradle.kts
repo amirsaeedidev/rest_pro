@@ -29,17 +29,21 @@ android {
 
     buildTypes {
         release {
-            // Keep the existing debug signing configuration for CI builds.
             signingConfig = signingConfigs.getByName("debug")
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
     }
 }
 
 dependencies {
-    // Flutter's embedding references Play Core split-install APIs for deferred
-    // components. Provide the maintained modular Play Feature Delivery library
-    // so R8 can resolve those classes in release builds.
-    implementation("com.google.android.play:feature-delivery:2.1.0")
+    // Flutter embedding still references the legacy Play Core Task/SplitInstall
+    // API surface. Feature Delivery 2.x alone does not provide all of these types.
+    implementation("com.google.android.play:core:1.10.3")
 }
 
 flutter {
