@@ -17,17 +17,15 @@ subprojects {
     project.evaluationDependsOn(":app")
 }
 
-// Keep Android library plugins (including older transitive Flutter plugins such
-// as isar_flutter_libs) on the same SDK as the application. Isar 3.x publishes
-// resources that reference android:attr/lStar (API 31+).
+// Isar 3.1.0+1 declares an old Android compile SDK. Override that module
+// after its Android plugin has completed configuration so its resources are
+// linked against API 36 (required for android:attr/lStar).
 subprojects {
-    plugins.withId("com.android.library") {
-        extensions.findByType<com.android.build.gradle.LibraryExtension>()?.apply {
-            if (namespace.isNullOrEmpty()) {
-                namespace = project.group.toString()
-                    .ifEmpty { "com.example.${project.name.replace("-", "_")}" }
+    afterEvaluate {
+        if (name == "isar_flutter_libs") {
+            extensions.findByType<com.android.build.gradle.LibraryExtension>()?.apply {
+                compileSdk = 36
             }
-            compileSdk = 36
         }
     }
 
