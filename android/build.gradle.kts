@@ -26,8 +26,13 @@ subprojects {
         plugins.withId("com.android.library") {
             extensions.configure<com.android.build.api.variant.AndroidComponentsExtension<*, *, *>>("androidComponents") {
                 finalizeDsl { androidExtension ->
-                    androidExtension.namespace = "dev.isar.isar_flutter_libs"
-                    androidExtension.compileSdk = 36
+                    // The wildcard AndroidComponentsExtension type erases the
+                    // DSL-specific properties in Kotlin. Cast to the library DSL
+                    // used by this Android library module before setting them.
+                    val libraryExtension =
+                        androidExtension as com.android.build.gradle.LibraryExtension
+                    libraryExtension.namespace = "dev.isar.isar_flutter_libs"
+                    libraryExtension.compileSdk = 36
                 }
             }
         }
