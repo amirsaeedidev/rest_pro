@@ -23,6 +23,9 @@ subprojects {
     if (name == "isar_flutter_libs") {
         plugins.withId("com.android.library") {
             extensions.configure<com.android.build.gradle.LibraryExtension> {
+                // Isar 3.1.0+1 predates AGP 8 and does not declare a namespace.
+                namespace = "dev.isar.isar_flutter_libs"
+                // Compile against API 36 to provide android:attr/lStar.
                 compileSdk = 36
             }
         }
