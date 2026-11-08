@@ -239,10 +239,9 @@ class _QBtn extends StatelessWidget {
     required this.icon,
     required this.onTap,
     required this.isDark,
-    this.isPrimary = false, this.color,
+    this.isPrimary = false,
   });
 
-  final Color? color;
   final IconData icon;
   final VoidCallback onTap;
   final bool isDark;
@@ -253,15 +252,14 @@ class _QBtn extends StatelessWidget {
     // ── رنگ پس‌زمینه (ایمن‌ترین حالت) ──
     final bg = isPrimary
         ? AppColors.primary
-        : (color?.withOpacity(0.1) ??
-            (isDark
-                ? Colors.white.withOpacity(0.1)
-                : Colors.black.withOpacity(0.06)));
+        : (isDark
+            ? Colors.white.withOpacity(0.1)
+            : Colors.black.withOpacity(0.06));
 
     // ── رنگ آیکون ──
     final iconColor = isPrimary
         ? Colors.white
-        : (color ?? (isDark ? AppColors.darkText : AppColors.lightText));
+        : (isDark ? AppColors.darkText : AppColors.lightText);
 
     return GestureDetector(
       onTap: onTap,
