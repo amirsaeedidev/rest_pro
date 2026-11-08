@@ -74,12 +74,6 @@ class _TimelineItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color dotColor = isDone
-        ? Colors.green
-        : isCurrent
-            ? AppColors.primary
-            : (isDark ? Colors.white24 : Colors.black12);
-
     final Color lineColor = isDone
         ? Colors.green
         : (isDark ? Colors.white12 : Colors.black12);
