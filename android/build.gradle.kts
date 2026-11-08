@@ -17,13 +17,12 @@ subprojects {
     project.evaluationDependsOn(":app")
 }
 
-// Isar 3.1.0+1 declares an old Android compile SDK. Override that module
-// after its Android plugin has completed configuration so its resources are
-// linked against API 36 (required for android:attr/lStar).
+// Isar 3.1.0+1 declares an old Android compile SDK. Configure it as soon
+// as its Android library plugin is applied, without using afterEvaluate.
 subprojects {
-    afterEvaluate {
-        if (name == "isar_flutter_libs") {
-            extensions.findByType<com.android.build.gradle.LibraryExtension>()?.apply {
+    if (name == "isar_flutter_libs") {
+        plugins.withId("com.android.library") {
+            extensions.configure<com.android.build.gradle.LibraryExtension> {
                 compileSdk = 36
             }
         }
