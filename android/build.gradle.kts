@@ -14,27 +14,23 @@ rootProject.layout.buildDirectory.value(newBuildDir)
 subprojects {
     val newSubprojectBuildDir: Directory = newBuildDir.dir(project.name)
     project.layout.buildDirectory.value(newSubprojectBuildDir)
-}
-subprojects {
     project.evaluationDependsOn(":app")
 }
 
-// اعمال تنظیمات اجباری برای رفع ارورهای پکیج‌های قدیمی
+// Keep Android library plugins (including older transitive Flutter plugins such
+// as isar_flutter_libs) on the same SDK as the application. Isar 3.x publishes
+// resources that reference android:attr/lStar (API 31+).
 subprojects {
     plugins.withId("com.android.library") {
         extensions.findByType<com.android.build.gradle.LibraryExtension>()?.apply {
-            // 1. رفع مشکل namespace
             if (namespace.isNullOrEmpty()) {
-                namespace = project.group.toString().ifEmpty { "com.example.${project.name.replace("-", "_")}" }
+                namespace = project.group.toString()
+                    .ifEmpty { "com.example.${project.name.replace("-", "_")}" }
             }
-            // 2. رفع مشکل lStar با اجبار به استفاده از SDK 34
-            if (compileSdk == null || compileSdk!! < 34) {
-                compileSdk = 34
-            }
+            compileSdk = 36
         }
     }
-    
-    // 3. تحمین نسخه‌های سازگار برای جلوگیری از ارور AGP 8.9.1
+
     configurations.all {
         resolutionStrategy {
             force("androidx.browser:browser:1.8.0")
