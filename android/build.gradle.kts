@@ -17,16 +17,18 @@ subprojects {
     project.evaluationDependsOn(":app")
 }
 
-// Isar 3.1.0+1 declares an old Android compile SDK. Configure it as soon
-// as its Android library plugin is applied, without using afterEvaluate.
+// Isar 3.1.0+1 predates AGP 8: it has no namespace and compiles
+// against an SDK too old to provide android:attr/lStar. finalizeDsl runs
+// after the plugin's own android block, so these values cannot be overwritten
+// by the package's legacy build.gradle.
 subprojects {
     if (name == "isar_flutter_libs") {
         plugins.withId("com.android.library") {
-            extensions.configure<com.android.build.gradle.LibraryExtension> {
-                // Isar 3.1.0+1 predates AGP 8 and does not declare a namespace.
-                namespace = "dev.isar.isar_flutter_libs"
-                // Compile against API 36 to provide android:attr/lStar.
-                compileSdk = 36
+            extensions.configure<com.android.build.api.variant.AndroidComponentsExtension<*, *, *>>("androidComponents") {
+                finalizeDsl { androidExtension ->
+                    androidExtension.namespace = "dev.isar.isar_flutter_libs"
+                    androidExtension.compileSdk = 36
+                }
             }
         }
     }
